@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Zub.Core</AssemblyName>
+    <RootNamespace>Zub</RootNamespace>
+    <NoWarn>CS8632;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Mono.Cecil" Version="0.11.4" />
+    <PackageReference Include="AssetRipper.TextureDecoder" Version="1.2.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="AssetsTools.NET">
+      <HintPath>..\..\Libs\AssetsTools.NET.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="AssetsTools.NET.MonoCecil">
+      <HintPath>..\..\Libs\AssetsTools.NET.MonoCecil.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="AssetsTools.NET.Texture">
+      <HintPath>..\..\Libs\AssetsTools.NET.Texture.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\data\classdata.tpk">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>classdata.tpk</Link>
+    </None>
+  </ItemGroup>
+
+</Project>

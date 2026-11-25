@@ -1,0 +1,21 @@
+# build / publish
+bin/
+obj/
+dist/
+installer/stage/
+installer/out/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# restos del programa
+*.zub_bak
+*.zub_new
+__pycache__/
+*.log
+
+# snippets de depuracion locales
+scripts/

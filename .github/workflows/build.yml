@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build solution
+        run: dotnet build ZeroUnityBatch.sln -c Release --nologo
+
+      - name: Publish GUI (single file)
+        run: dotnet publish src/Zub.App/Zub.App.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o out/app
+
+      - name: Publish CLI (zub)
+        run: dotnet publish src/Zub.Cli/Zub.Cli.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o out/cli
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zub-portable-win-x64
+          path: out/
+          retention-days: 14

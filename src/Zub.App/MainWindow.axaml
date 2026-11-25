@@ -1,0 +1,263 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Zub.App.MainWindow"
+        Title="ZeroUnity Batch"
+        Icon="/Assets/zub.ico"
+        Width="1500" Height="900" MinWidth="1180" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="0">
+
+    <!-- cabecera -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="22,16,22,12">
+      <StackPanel Spacing="2">
+        <TextBlock Text="ZeroUnity Batch" Classes="h1" />
+        <TextBlock x:Name="TxtProject" Classes="caption" Text="Ningún proyecto abierto" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button x:Name="BtnLaunch" Content="Abrir juego" Padding="14,9"
+                ToolTip.Tip="Ejecuta el juego para probar los cambios" />
+        <Button x:Name="BtnAndroid" Content="Android ▾" Padding="14,9"
+                ToolTip.Tip="APK: descomprimir, DLLs y empaquetar+firmar">
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="Abrir .apk (descomprimir)…" Click="MenuApk_Click" />
+              <MenuItem Header="Generar DLLs (Il2CppDumper)" Click="MenuDlls_Click" />
+              <MenuItem Header="Empaquetar y firmar APK…" Click="MenuPack_Click" />
+              <Separator />
+              <MenuItem Header="Comprobar herramientas" Click="MenuTools_Click" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+        <Button x:Name="BtnOpen" Content="Abrir carpeta del juego…"
+                Classes="accent" Padding="16,9" />
+      </StackPanel>
+    </Grid>
+
+    <!-- barra de acciones -->
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" Margin="22,0,22,10">
+
+      <Button x:Name="BtnTypes" Padding="12,7" ToolTip.Tip="Tipos de objeto a mostrar">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock x:Name="TxtTypesLabel" Text="Tipos" />
+          <TextBlock Text="▾" FontSize="10" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <StackPanel Width="240" Spacing="2" Margin="4">
+              <TextBlock Text="Tipos de objeto" Classes="head" Margin="8,4,8,6" />
+              <CheckBox x:Name="ChkMono" Content="MonoBehaviour" Margin="4,0" />
+              <CheckBox x:Name="ChkText" Content="TextAsset" Margin="4,0" />
+              <CheckBox x:Name="ChkTex" Content="Texture2D" Margin="4,0" />
+              <Border Height="1" Background="{DynamicResource Line}" Margin="8,6" />
+              <StackPanel Orientation="Horizontal" Spacing="6" Margin="4,0">
+                <Button Content="Todos" Classes="ghost" Padding="10,5" x:Name="BtnAllTypes" />
+                <Button Content="Ninguno" Classes="ghost" Padding="10,5" x:Name="BtnNoTypes" />
+              </StackPanel>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <Button Grid.Column="1" x:Name="BtnPending" Content="Modificados (0)" Padding="12,7" Margin="8,0,0,0"
+              ToolTip.Tip="Mostrar solo los objetos con cambios preparados" />
+
+      <Button Grid.Column="2" x:Name="BtnOptions" Padding="12,7" Margin="8,0,0,0" ToolTip.Tip="Opciones de búsqueda">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="Opciones" />
+          <TextBlock Text="▾" FontSize="10" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <StackPanel Width="280" Spacing="2" Margin="4">
+              <TextBlock Text="Búsqueda" Classes="head" Margin="8,4,8,6" />
+              <CheckBox x:Name="ChkRegex" Content="Expresión regular" Margin="4,0" />
+              <CheckBox x:Name="ChkCase" Content="Distinguir mayúsculas" Margin="4,0" />
+              <CheckBox x:Name="ChkDeep" Content="Buscar también en campos (JSON)" Margin="4,0" IsChecked="True" />
+              <TextBlock Classes="caption" Margin="10,8,10,2" TextWrapping="Wrap"
+                         Text="Intro busca dentro de los objetos. Si no hay resultados en los bytes, se busca en la estructura: encuentra nombres de campo como m_text." />
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <Grid Grid.Column="3" ColumnDefinitions="*,Auto" Margin="8,0">
+        <TextBox x:Name="TxtQuery" VerticalContentAlignment="Center"
+                 Watermark="Filtrar por nombre… (Intro busca dentro del contenido)" />
+        <Button Grid.Column="1" x:Name="BtnClearSearch" Content="✕" Width="30" Height="30"
+                Padding="0" Margin="6,0,0,0" Classes="ghost" ToolTip.Tip="Quitar búsqueda (Esc)" />
+      </Grid>
+
+      <Button Grid.Column="4" x:Name="BtnSearch" Content="Buscar" Padding="16,7" />
+
+      <Button Grid.Column="5" x:Name="BtnSaveAll" Content="Guardar todo (0)" Margin="8,0,0,0" Padding="14,7"
+              ToolTip.Tip="Escribe al juego todos los cambios preparados" />
+
+      <Button Grid.Column="6" x:Name="BtnExport" Content="Exportar ▾" Margin="8,0,0,0" Padding="14,7">
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedLeft">
+            <MenuItem Header="Selección" x:Name="MenuExportSel" />
+            <MenuItem Header="Todo el listado" x:Name="MenuExportAll" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+
+      <Button Grid.Column="7" x:Name="BtnImport" Content="Reimportar ▾" Margin="8,0,0,0" Padding="14,7">
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedLeft">
+            <MenuItem Header="Cargar cambios de una carpeta…" x:Name="MenuImportFolder" />
+            <MenuItem Header="Cargar cambios de un archivo…" x:Name="MenuImportFile" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+
+      <Button Grid.Column="8" x:Name="BtnCancel" Content="Cancelar" Margin="8,0,0,0" Padding="14,7" />
+    </Grid>
+
+    <!-- cuerpo -->
+    <Grid x:Name="GridBody" Grid.Row="2" ColumnDefinitions="*,6,520" Margin="22,0,22,0">
+
+      <Border Grid.Column="0" Background="{DynamicResource Content}" CornerRadius="8"
+              BorderBrush="{DynamicResource Line}" BorderThickness="1" ClipToBounds="True">
+        <Grid RowDefinitions="*,Auto">
+          <DataGrid x:Name="Grid"
+                    AutoGenerateColumns="False"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    CanUserReorderColumns="False"
+                    IsReadOnly="True"
+                    SelectionMode="Extended"
+                    HeadersVisibility="Column"
+                    GridLinesVisibility="None"
+                    RowHeight="30"
+                    ColumnHeaderHeight="34"
+                    ScrollViewer.VerticalScrollBarVisibility="Visible"
+                    ScrollViewer.HorizontalScrollBarVisibility="Auto">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="MOD." Binding="{Binding StateText}" Width="52" SortMemberPath="Pending" />
+              <DataGridTextColumn Header="NOMBRE" Binding="{Binding DisplayName}" Width="*" SortMemberPath="DisplayName" />
+              <DataGridTextColumn Header="TIPO" Binding="{Binding TypeText}" Width="120" SortMemberPath="TypeText" />
+              <DataGridTextColumn Header="PATHID" Binding="{Binding PathIdValue}" Width="106" SortMemberPath="PathIdValue" />
+              <DataGridTextColumn Header="CONTENEDOR" Binding="{Binding ContainerName}" Width="148" SortMemberPath="ContainerName" />
+              <DataGridTextColumn Header="BYTES" Binding="{Binding SizeValue}" Width="96" SortMemberPath="SizeValue" />
+            </DataGrid.Columns>
+          </DataGrid>
+
+          <Panel x:Name="EmptyHint" Grid.Row="0" Margin="0,34,0,0" IsHitTestVisible="False">
+            <Rectangle Stroke="#3B3B49" StrokeThickness="2" StrokeDashArray="7,5"
+                       RadiusX="10" RadiusY="10" Margin="16,10,16,16" />
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
+              <TextBlock Text="Arrastra aquí el .exe o la carpeta del juego"
+                         FontSize="15" FontWeight="SemiBold" Foreground="#A8A8B8"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="o pulsa «Abrir carpeta del juego…» arriba a la derecha"
+                         Classes="caption" HorizontalAlignment="Center" Foreground="#7C7C8A" />
+            </StackPanel>
+          </Panel>
+
+
+          <Border Grid.Row="1" Background="#141419" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"
+                  Padding="12,6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock x:Name="TxtCounts" Classes="caption" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="TxtHint" Classes="caption" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+      <!-- vista previa -->
+      <Border Grid.Column="2" Background="{DynamicResource Surface}" CornerRadius="8"
+              BorderBrush="{DynamicResource Line}" BorderThickness="1">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="14">
+
+          <StackPanel Grid.Row="0" Spacing="3">
+            <TextBlock x:Name="TxtPreviewTitle" Text="Vista previa" FontSize="14" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" Foreground="#F0F0F6" />
+            <TextBlock x:Name="TxtPreviewInfo" Classes="caption" TextTrimming="CharacterEllipsis"
+                       Text="Selecciona un objeto del listado" />
+          </StackPanel>
+
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,8">
+            <TextBlock x:Name="TxtMode" Classes="caption" VerticalAlignment="Center" Text="Lectura" />
+            <Button Grid.Column="1" x:Name="BtnFind" Content="Buscar en el texto" Padding="10,5" FontSize="12"
+                    Margin="0,0,6,0" ToolTip.Tip="Ctrl+F" />
+            <Button Grid.Column="2" x:Name="BtnEdit" Content="Editar" Padding="12,5" FontSize="12" />
+          </Grid>
+
+          <Border Grid.Row="2" Background="#0C0C0F" CornerRadius="6"
+                  BorderBrush="{DynamicResource Line}" BorderThickness="1" ClipToBounds="True">
+            <Grid>
+              <Border x:Name="EditorHost" IsVisible="False" />
+
+              <ScrollViewer x:Name="ScrollImage" IsVisible="False" HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Auto">
+                <Image x:Name="ImgPreview" Stretch="None" />
+              </ScrollViewer>
+
+              <StackPanel x:Name="PanelEmpty" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Nada seleccionado" FontSize="14" FontWeight="SemiBold"
+                           Foreground="#8E8E9C" HorizontalAlignment="Center" />
+                <TextBlock Classes="caption" Text="Elige una fila para ver su contenido."
+                           HorizontalAlignment="Center" Foreground="#6E6E7C" />
+              </StackPanel>
+
+              <StackPanel x:Name="PanelLoading" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          IsVisible="False">
+                <TextBlock x:Name="TxtLoading" Classes="caption" Text="Leyendo objeto…" HorizontalAlignment="Center" />
+                <ProgressBar IsIndeterminate="True" Width="160" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- buscar / reemplazar dentro del objeto -->
+          <Border Grid.Row="3" x:Name="FindBar" IsVisible="False" Margin="0,8,0,0"
+                  Background="#191920" CornerRadius="6" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                  Padding="8,6">
+            <Grid ColumnDefinitions="*,Auto,Auto,*,Auto,Auto,Auto">
+              <TextBox x:Name="TxtFind" Watermark="Buscar en este objeto…" FontSize="12" MinHeight="28" Padding="7,4"
+                       Margin="0,0,6,0" />
+              <Button Grid.Column="1" x:Name="BtnFindPrev" Content="▲" Width="30" MinHeight="28" Padding="0" FontSize="11"
+                      Margin="0,0,4,0" />
+              <Button Grid.Column="2" x:Name="BtnFindNext" Content="▼" Width="30" MinHeight="28" Padding="0" FontSize="11"
+                      Margin="0,0,8,0" />
+              <TextBox Grid.Column="3" x:Name="TxtReplace" Watermark="Reemplazar por…" FontSize="12" MinHeight="28"
+                       Padding="7,4" Margin="0,0,6,0" />
+              <Button Grid.Column="4" x:Name="BtnReplace" Content="Reemplazar" FontSize="11" Padding="8,4" MinHeight="28"
+                      Margin="0,0,4,0" />
+              <Button Grid.Column="5" x:Name="BtnReplaceAll" Content="Todo" FontSize="11" Padding="8,4" MinHeight="28"
+                      Margin="0,0,6,0" />
+              <Button Grid.Column="6" x:Name="BtnFindClose" Content="✕" Width="28" MinHeight="28" Padding="0" FontSize="11" />
+            </Grid>
+          </Border>
+
+          <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+            <Button x:Name="BtnMark" Content="Preparar cambio" Classes="accent" Padding="12,6" FontSize="12" />
+            <Button x:Name="BtnDiscard" Content="Descartar" Padding="12,6" FontSize="12" />
+            <Button x:Name="BtnSaveAs" Content="Guardar como…" Padding="12,6" FontSize="12" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- estado -->
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="22,10,22,0">
+      <ProgressBar x:Name="Bar" IsVisible="False" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="1" x:Name="TxtStatus" Classes="caption" Margin="12,0,0,0"
+                 VerticalAlignment="Center" Text="" />
+    </Grid>
+
+    <!-- registro -->
+    <Expander Grid.Row="4" Header="Registro" IsExpanded="False" Padding="22,0,22,12" Margin="0,6,0,0">
+      <TextBox x:Name="TxtLog" Height="150" IsReadOnly="True"
+               AcceptsReturn="True" TextWrapping="NoWrap"
+               FontFamily="Consolas,monospace" FontSize="11.5"
+               Background="#0C0C0F" Foreground="#B9B9C6"
+               ScrollViewer.VerticalScrollBarVisibility="Auto" />
+    </Expander>
+  </Grid>
+</Window>

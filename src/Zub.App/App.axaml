@@ -1,0 +1,210 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Zub.App.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <Color x:Key="SystemAccentColor">#3B82F6</Color>
+    <SolidColorBrush x:Key="Bg" Color="#151518" />
+    <SolidColorBrush x:Key="Surface" Color="#1E1E23" />
+    <SolidColorBrush x:Key="Content" Color="#101013" />
+    <SolidColorBrush x:Key="Line" Color="#2C2C34" />
+    <SolidColorBrush x:Key="Muted" Color="#C2C2CE" />
+    <SolidColorBrush x:Key="Accent" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentHover" Color="#2F6FD8" />
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="14,7" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Background" Value="#2A2A32" />
+      <Setter Property="Foreground" Value="#E9E9F0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#35353F" />
+    </Style>
+
+    <Style Selector="Button:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#3E3E4A" />
+    </Style>
+
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{DynamicResource Accent}" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHover}" />
+    </Style>
+
+    <Style Selector="Button:disabled">
+      <Setter Property="Background" Value="#26262E" />
+      <Setter Property="Foreground" Value="#9A9AA8" />
+    </Style>
+
+    <Style Selector="Button:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="#26262E" />
+      <Setter Property="TextElement.Foreground" Value="#9A9AA8" />
+    </Style>
+
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2A2A32" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="#141418" />
+      <Setter Property="Foreground" Value="#E9E9F0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="9,7" />
+      <Setter Property="MinHeight" Value="32" />
+    </Style>
+
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="#E9E9F0" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="CheckBox /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="#1B1B21" />
+      <Setter Property="BorderBrush" Value="#565664" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+
+    <Style Selector="CheckBox:pointerover /template/ Border#NormalRectangle">
+      <Setter Property="BorderBrush" Value="#7C7C8C" />
+    </Style>
+
+    <Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    </Style>
+
+    <Style Selector="Button.mode">
+      <Setter Property="Background" Value="#1E1E23" />
+      <Setter Property="Foreground" Value="#C6C6D2" />
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <Style Selector="Button.mode.on">
+      <Setter Property="Background" Value="#26436D" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.mode.on:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2E5080" />
+    </Style>
+
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="#26436D" />
+    </Style>
+
+    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#232329" />
+    </Style>
+
+    <Style Selector="ProgressBar">
+      <Setter Property="Height" Value="4" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="#2C2C34" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    </Style>
+
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="#101013" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="#DCDCE6" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#22222A" />
+      <Setter Property="VerticalGridLinesBrush" Value="#22222A" />
+      <Setter Property="FontSize" Value="12.5" />
+    </Style>
+
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="#191920" />
+      <Setter Property="Foreground" Value="#BFBFCC" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="10,9" />
+      <Setter Property="BorderBrush" Value="#2C2C34" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+
+    <Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+      <Setter Property="Background" Value="#22222B" />
+    </Style>
+
+    <Style Selector="DataGridRow">
+      <Setter Property="Foreground" Value="#DCDCE6" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#1C1C23" />
+    </Style>
+
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#25436E" />
+    </Style>
+
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Foreground" Value="#DCDCE6" />
+    </Style>
+
+    <Style Selector="DataGridCell:selected /template/ Border#CellRoot">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="SelectableTextBlock">
+      <Setter Property="Foreground" Value="#DCDCE6" />
+    </Style>
+
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#F2F2F6" />
+    </Style>
+
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+
+    <Style Selector="TextBlock.head">
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#BABAC6" />
+    </Style>
+  </Application.Styles>
+</Application>
