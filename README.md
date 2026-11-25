@@ -18,6 +18,8 @@ around *throughput* instead of browsing one object at a time.
  repeat 4,700 times      ~28 seconds
 ```
 
+![ZeroUnity Batch](docs/screenshot.png)
+
 ---
 
 ## What it handles
