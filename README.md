@@ -143,7 +143,8 @@ class database and is copied next to the executable automatically.
   SkiaSharp, Mono.Cecil, Newtonsoft.Json, ImageSharp, AssetRipper.TextureDecoder.
 * Android tooling: apktool, zipalign, apksigner, Il2CppDumper.
 
-MIT licensed — see [LICENSE](LICENSE).
+MIT licensed — see [LICENSE](LICENSE). Bundled binaries and the tools that are *not* in this
+repository are listed in [THIRD-PARTY.md](THIRD-PARTY.md).
 
 > Use it only on games you own or are authorized to modify. Localizing a game you bought for
 > personal use is a different thing from redistributing its assets; that part is on you.

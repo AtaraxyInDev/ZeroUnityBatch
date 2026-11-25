@@ -19,17 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party components:
-
-* AssetsTools.NET / AssetsTools.NET.Texture / AssetsTools.NET.MonoCecil
-  (https://github.com/nesrak1/AssetsTools.NET) - MIT, by nesrak1.
-  Binaries are bundled in Libs/ so the project builds without extra steps.
-* classdata.tpk (data/) - class database shipped with UABEA / AssetsTools.NET (MIT).
-* Avalonia, AvaloniaEdit, TextMate, SkiaSharp, Newtonsoft.Json, Mono.Cecil,
-  SixLabors.ImageSharp, AssetRipper.TextureDecoder - MIT / Apache-2.0.
-* Portable Android toolchain in dist/tools (not part of this repository):
-  apktool, zipalign, apksigner (Apache-2.0), Il2CppDumper (MIT),
-  trimmed JRE built with jlink (GPLv2+CE).
