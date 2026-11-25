@@ -1,5 +1,7 @@
 # ZeroUnity Batch
 
+[![build](https://github.com/AtaraxyInDev/ZeroUnityBatch/actions/workflows/build.yml/badge.svg)](https://github.com/AtaraxyInDev/ZeroUnityBatch/actions/workflows/build.yml)
+
 **A batch asset re-importer for Unity games, built for game localization.** Open a game folder,
 queue thousands of translated JSON/PNG files, and write them back in one pass — with verification.
 
