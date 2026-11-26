@@ -607,6 +607,59 @@ namespace Zub.App
                 await OpenProjectAsync(path);
         }
 
+        /// <summary>Compara una carpeta exportada con UABEA contra la nuestra (paridad real).</summary>
+        private async void BtnCompare_Click(object? sender, RoutedEventArgs e)
+        {
+            async Task<string> Elegir(string titulo)
+            {
+                var f = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = titulo,
+                    AllowMultiple = false
+                });
+                return f.Count > 0 ? f[0].TryGetLocalPath() : null;
+            }
+
+            string a = await Elegir("1/2 · Carpeta exportada con UABEA");
+            if (string.IsNullOrEmpty(a))
+                return;
+
+            string b = await Elegir("2/2 · Nuestra carpeta exportada");
+            if (string.IsNullOrEmpty(b))
+                return;
+
+            bool exacto = await Dialogs.ConfirmAsync(this, "Comparar carpetas",
+                "¿Comparar también el contenido de cada archivo?" + Environment.NewLine +
+                Environment.NewLine + "Sí = byte a byte (más lento, detecta todo)." +
+                Environment.NewLine + "No = solo tamaño (rápido).",
+                "Byte a byte", "Solo tamaño");
+
+            SetBusy(true);
+            SetProgress(-1, "Comparando carpetas…");
+            try
+            {
+                var res = await Task.Run(() => FolderCompare.Run(a, b, exacto,
+                    (i, n) => Ui(() => SetProgress(n <= 0 ? -1 : (int)(i * 100.0 / n), "Comparando…"))));
+
+                string csv = Path.Combine(a, "comparacion_con_zub.csv");
+                try { res.GuardarCsv(csv); } catch { csv = null; }
+
+                Log("Comparación: " + res.Iguales + " idénticos · " + res.Falta.Count + " faltan · " +
+                    res.Distintos.Count + " distintos");
+                await Dialogs.InfoAsync(this, "Comparar con UABEA",
+                    res.Resumen() + (csv == null ? "" : Environment.NewLine + Environment.NewLine + "Informe CSV:" + Environment.NewLine + csv));
+            }
+            catch (Exception ex)
+            {
+                await Dialogs.InfoAsync(this, "Comparar con UABEA", "Error: " + ex.Message);
+            }
+            finally
+            {
+                SetBusy(false);
+                SetProgress(0, "");
+            }
+        }
+
         private async Task OpenProjectAsync(string path)
         {
             SetBusy(true);

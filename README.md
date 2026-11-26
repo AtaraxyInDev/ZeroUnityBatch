@@ -115,6 +115,17 @@ zub compare   <dirUABEA> <dirZub> [--exact] [--out informe.csv]
 zub android / dlls / apk             Android helpers
 ```
 
+## Parity against UABEA
+
+The GUI has a **Compare with UABEA…** button: pick the folder UABEA exported and the folder we
+exported, and it reports how many files are identical byte for byte, how many are missing (and how
+many of those are the same object under a different name) and how many differ, leaving a
+`comparacion_con_zub.csv` with the detail. The same check is available as `zub compare`.
+
+Real example (ZH-GALxSurvival, 17,920 MonoBehaviours): **17,583 identical**, 24 under another name,
+1 unmatched, 312 different — but **311 of those 312 are objects UABEA itself could not read**
+(it writes `Asset failed to deserialize.`), and in 189 of them we do produce the full JSON.
+
 ## Build
 
 .NET 8 SDK, Windows x64 (Avalonia 11 + SkiaSharp).

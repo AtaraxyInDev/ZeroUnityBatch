@@ -31,6 +31,9 @@
             </MenuFlyout>
           </Button.Flyout>
         </Button>
+        <Button x:Name="BtnCompare" Content="Comparar con UABEA…" Padding="14,9"
+                ToolTip.Tip="Compara una carpeta exportada con UABEA contra la nuestra"
+                Click="BtnCompare_Click" />
         <Button x:Name="BtnOpen" Content="Abrir carpeta del juego…"
                 Classes="accent" Padding="16,9" />
       </StackPanel>

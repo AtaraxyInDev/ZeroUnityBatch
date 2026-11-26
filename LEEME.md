@@ -137,15 +137,19 @@ Los JSON exportados por UABEA Next 4 se leen tal cual (mismo formato), incluidos
 los que llevan `-CAB-<hash>-` en el nombre (AssetBundles/Addressables).
 
 Para saber cómo de iguales vamos en un juego concreto, exporta el mismo tipo de
-objeto con UABEA y con nosotros y compara las dos carpetas:
+objeto con UABEA y con nosotros y pulsa **Comparar con UABEA…** (arriba):
+
+1. Elige la carpeta exportada con UABEA.
+2. Elige la carpeta exportada con nosotros.
+3. Te dice cuántos archivos son idénticos byte a byte, cuántos nos faltan (y cuántos
+   de esos son el mismo objeto con otro nombre) y cuántos difieren. Deja un
+   `comparacion_con_zub.csv` con el detalle dentro de la carpeta de UABEA.
+
+Lo mismo desde consola, si algún día lo necesitas:
 
 ```text
-ZeroUnityBatch.exe compare "ruta\export_uabea" "ruta\export_zub" --exact --out informe.csv
+zub compare "ruta\export_uabea" "ruta\export_zub" --exact --out informe.csv
 ```
-
-Dice cuántos archivos son idénticos byte a byte, cuántos nos faltan (o van con otro
-nombre) y cuántos difieren; con `--exact` compara el contenido, no solo el tamaño.
-Devuelve 3 si hay cualquier diferencia, así se puede usar en un script.
 
 Ejemplo real (ZH-GALxSurvival, 17.920 objetos): 17.583 idénticos, 24 con otro
 nombre, 1 sin pareja y 312 distintos — de esos 312, **311 son objetos que UABEA

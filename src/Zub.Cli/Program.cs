@@ -585,7 +585,7 @@ internal static class Program
     /// <summary>
     /// Compara dos carpetas de exportación (por ejemplo la de UABEA y la nuestra) y dice
     /// exactamente qué objetos faltan y cuáles salieron distintos. Sirve para medir la paridad
-    /// con UABEA en CUALQUIER juego, sin fiarse de la palabra de nadie.
+    /// con UABEA en CUALQUIER juego.
     /// </summary>
     private static int CompareCmd(Opts o)
     {
@@ -597,78 +597,23 @@ internal static class Program
             return 1;
         }
 
-        string dirA = pos[0], dirB = pos[1];
-        bool exacto = o.Get("--exact") != null;
-        string salida = o.Get("--out");
-
-        if (!Directory.Exists(dirA) || !Directory.Exists(dirB))
+        if (!Directory.Exists(pos[0]) || !Directory.Exists(pos[1]))
         {
             Console.Error.WriteLine("No existe alguna de las carpetas.");
             return 1;
         }
 
-        Dictionary<string, string> Indexar(string dir)
+        var res = FolderCompare.Run(pos[0], pos[1], o.Get("--exact") != null);
+        Console.Write(res.Resumen(20));
+
+        if (o.Get("--out") is string salida)
         {
-            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-                d[Path.GetFileName(f)] = f;
-            return d;
-        }
-
-        var a = Indexar(dirA);
-        var b = Indexar(dirB);
-
-        var soloA = a.Keys.Where(k => !b.ContainsKey(k)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
-        var soloB = b.Keys.Where(k => !a.ContainsKey(k)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
-        var distintos = new List<string>();
-        int iguales = 0;
-
-        foreach (var k in a.Keys.Where(k => b.ContainsKey(k)))
-        {
-            var fa = new FileInfo(a[k]);
-            var fb = new FileInfo(b[k]);
-
-            bool dif = fa.Length != fb.Length;
-            if (!dif && exacto && fa.Length <= 8 * 1024 * 1024)
-                dif = !File.ReadAllBytes(a[k]).AsSpan().SequenceEqual(File.ReadAllBytes(b[k]));
-
-            if (dif) distintos.Add(k); else iguales++;
-        }
-
-        Console.WriteLine($"A (referencia): {a.Count} archivos  ·  B (nuestra): {b.Count} archivos");
-        Console.WriteLine($"Iguales: {iguales}");
-        Console.WriteLine($"Solo en A (nos falta): {soloA.Count}");
-        Console.WriteLine($"Solo en B (nos sobra): {soloB.Count}");
-        Console.WriteLine($"Distintos: {distintos.Count}" + (exacto ? " (comparación byte a byte)" : " (por tamaño; usa --exact para byte a byte)"));
-
-        void Muestra(string titulo, List<string> lista)
-        {
-            if (lista.Count == 0)
-                return;
-            Console.WriteLine();
-            Console.WriteLine(titulo + ":");
-            foreach (var n in lista.Take(20))
-                Console.WriteLine("  · " + n);
-            if (lista.Count > 20)
-                Console.WriteLine($"  … y {lista.Count - 20} más");
-        }
-
-        Muestra("Nos falta (está en la referencia)", soloA);
-        Muestra("Nos sobra", soloB);
-        Muestra("Distintos", distintos);
-
-        if (!string.IsNullOrEmpty(salida))
-        {
-            using var w = new StreamWriter(salida, false, new System.Text.UTF8Encoding(false));
-            w.WriteLine("estado,archivo");
-            foreach (var n in soloA) w.WriteLine("falta," + n);
-            foreach (var n in soloB) w.WriteLine("sobra," + n);
-            foreach (var n in distintos) w.WriteLine("distinto," + n);
+            res.GuardarCsv(salida);
             Console.WriteLine();
             Console.WriteLine("Informe: " + salida);
         }
 
-        return soloA.Count == 0 && soloB.Count == 0 && distintos.Count == 0 ? 0 : 3;
+        return res.Identico ? 0 : 3;
     }
 
     private static int SearchCmd(string game, Opts o)
