@@ -864,6 +864,7 @@ namespace Zub.App
                         using var msN = new MemoryStream(pngNuevo);
                         _imgPreview.Source = new Bitmap(msN);
                         _scrollImage.IsVisible = true;
+                        _editorHost.IsVisible = false;
                         FitImage();
                         SetLoading(false);
                         _txtPreviewInfo.Text += "   ·   imagen nueva preparada";
@@ -882,6 +883,7 @@ namespace Zub.App
                         using var ms = new MemoryStream(t.Png);
                         _imgPreview.Source = new Bitmap(ms);
                         _scrollImage.IsVisible = true;
+                        _editorHost.IsVisible = false;
                         FitImage();
                         _txtPreviewInfo.Text += $"   ·   {t.Width}×{t.Height}   ·   {t.Format}" +
                                                 (t.MipCount > 1 ? $"   ·   {t.MipCount} mips" : "");

@@ -637,11 +637,17 @@ namespace Zub
                 {
                     try
                     {
+                        // En formatos antiguos (Unity 4/5) el id del tipo puede venir en negativo:
+                        // son MonoBehaviours identificados por el índice de su script.
+                        int classId = info.TypeId;
+                        if (classId < 0)
+                            classId = AssetTypes.MonoBehaviour;
+
                         var entry = new AssetEntry
                         {
                             Inst = inst,
                             PathId = info.PathId,
-                            ClassId = info.TypeId,
+                            ClassId = classId,
                             MonoId = inst.file.GetScriptIndex(info),
                             Position = info.AbsoluteByteStart,
                             Size = info.ByteSize,

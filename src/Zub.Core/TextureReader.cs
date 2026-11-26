@@ -72,7 +72,8 @@ namespace Zub
                 byte[] rgba = Decode(raw, info.Width, info.Height, (TextureFormat)tex.m_TextureFormat);
                 if (rgba == null)
                 {
-                    info.Error = "formato no soportado para previsualizar: " + info.Format;
+                    info.Error = "formato no soportado para previsualizar: " + info.Format +
+                                 (DecodeDetail != null ? "  (" + DecodeDetail + ")" : "");
                     return info;
                 }
 
@@ -414,10 +415,38 @@ namespace Zub
             catch { return null; }
         }
 
+        /// <summary>Motivo del último fallo de decodificación (para el mensaje al usuario).</summary>
+        [ThreadStatic] private static string DecodeDetail;
+
+        private static int Bloques(int v) => (v + 3) / 4;
+
         private static byte[] Decode(byte[] data, int width, int height, TextureFormat format)
         {
+            DecodeDetail = null;
             switch (format)
             {
+                // Unity deja la marca "crunched" aunque el build guarde el bloque normal en muchos casos:
+                // si el tamaño coincide con el del formato base, se decodifica igual.
+                case TextureFormat.DXT1Crunched:
+                    if (data.Length >= Bloques(width) * Bloques(height) * 8)
+                        return DecodeBc(() => BcDecoder.DecompressBC1(data, width, height, out var o) >= 0 ? o : null);
+                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B, DXT1 sin comprimir serían {Bloques(width) * Bloques(height) * 8:N0} B";
+                    return null;
+                case TextureFormat.DXT5Crunched:
+                    if (data.Length >= Bloques(width) * Bloques(height) * 16)
+                        return DecodeBc(() => BcDecoder.DecompressBC3(data, width, height, out var o) >= 0 ? o : null);
+                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B, DXT5 sin comprimir serían {Bloques(width) * Bloques(height) * 16:N0} B";
+                    return null;
+                case TextureFormat.ETC_RGB4Crunched:
+                    if (data.Length >= Bloques(width) * Bloques(height) * 8)
+                        return DecodeBc(() => EtcDecoder.DecompressETC(data, width, height, out var o) >= 0 ? o : null);
+                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B";
+                    return null;
+                case TextureFormat.ETC2_RGBA8Crunched:
+                    if (data.Length >= Bloques(width) * Bloques(height) * 16)
+                        return DecodeBc(() => EtcDecoder.DecompressETC2A1(data, width, height, out var o) >= 0 ? o : null);
+                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B";
+                    return null;
                 case TextureFormat.DXT1:
                     return DecodeBc(() => BcDecoder.DecompressBC1(data, width, height, out var o) >= 0 ? o : null);
                 case TextureFormat.DXT5:
@@ -467,6 +496,23 @@ namespace Zub
                     return data.Length >= width * height * 4 ? data : null;
 
                 case TextureFormat.ARGB32:
+                {
+                    // Los bytes van en orden A,R,G,B (verificado contra UnityPy en Unity 5.3):
+                    // al leerlos como B,G,R,A el rojo y el azul salen cambiados y las máscaras
+                    // se ven amarillas.
+                    if (data.Length < width * height * 4)
+                        return null;
+                    var output = new byte[width * height * 4];
+                    for (int i = 0; i < width * height; i++)
+                    {
+                        output[i * 4 + 0] = data[i * 4 + 1];
+                        output[i * 4 + 1] = data[i * 4 + 2];
+                        output[i * 4 + 2] = data[i * 4 + 3];
+                        output[i * 4 + 3] = data[i * 4 + 0];
+                    }
+                    return output;
+                }
+
                 case TextureFormat.BGRA32:
                 {
                     // en memoria little-endian: B,G,R,A

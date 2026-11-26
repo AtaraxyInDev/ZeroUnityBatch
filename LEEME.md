@@ -1,4 +1,4 @@
-# ZeroUnity Batch 1.0.2
+# ZeroUnity Batch 1.0.3
 
 Motor: AssetsTools.NET (el mismo de UABEA Next).
 Interfaz: Avalonia 11 + AvaloniaEdit (editor virtualizado con resaltado).
@@ -56,6 +56,14 @@ Preparar/Descartar trabajan igual sobre un objeto individual.
 - **Comando `compare`**: compara tu carpeta exportada con UABEA contra la nuestra
   y dice exactamente qué falta y qué difiere (ver "Compatibilidad con UABEA").
 - Exportación e importación en paralelo: ~3× más rápido.
+- **Unity antiguos (4.x/5.x)**: los objetos cuyo tipo viene con id negativo cuentan como
+  MonoBehaviour. Antes un juego Unity 5.3 mostraba 0 MonoBehaviours (Castle of Temptation:
+  43.897 objetos que no aparecían).
+- **ARGB32**: se interpreta en el orden correcto (A,R,G,B). Antes el rojo y el azul salían
+  cambiados y cientos de máscaras/texturas se veían amarillas (482 de 1.731 en ese juego).
+- **El mensaje de error de una textura ya no se queda pegado** encima de la imagen siguiente.
+- **Texturas Crunch** (`DXT5Crunched`): si el build guardó el bloque normal se decodifican igual;
+  si van comprimidas de verdad, el mensaje dice el tamaño exacto para que se sepa.
 
 ## Portátil: no hace falta instalar nada
 
