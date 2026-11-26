@@ -172,78 +172,128 @@ namespace Zub
         private readonly Dictionary<string, string> monoScriptCache = new Dictionary<string, string>();
         private readonly Dictionary<long, string> scriptNameCache = new Dictionary<long, string>();
 
-        public static string FindDataDir(string path)
+        /// <summary>
+        /// Limpia la ruta tal como llega del arrastre o del portapapeles (espacios, comillas,
+        /// saltos de línea). Si es un archivo, devuelve su carpeta.
+        /// </summary>
+        public static string NormalizePath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            if (string.IsNullOrWhiteSpace(path))
                 return null;
 
-            // 1. la propia carpeta ya es la de datos
-            if (File.Exists(Path.Combine(path, "globalgamemanagers")))
-                return path;
+            string p = path.Replace("\0", "").Trim();
+            p = p.Trim(new char[] { ' ', (char)34, (char)13, (char)10, (char)9 });
+            if (p.Length == 0)
+                return null;
 
-            // 2. estructura de APK descomprimido (apktool): assets/bin/Data
-            string android = Path.Combine(path, "assets", "bin", "Data");
-            if (File.Exists(Path.Combine(android, "globalgamemanagers")))
-                return android;
-
-            // 3. carpeta *_Data al lado
             try
             {
-                var subs = Directory.GetDirectories(path, "*_Data");
-                foreach (var sub in subs)
-                    if (File.Exists(Path.Combine(sub, "globalgamemanagers")))
-                        return sub;
+                if (File.Exists(p))
+                    return Path.GetDirectoryName(p);
+                if (Directory.Exists(p))
+                    return p.TrimEnd('\\', '/');
             }
             catch { }
 
-            // 4. el padre
-            var parent = Directory.GetParent(path);
-            if (parent != null)
-            {
-                if (File.Exists(Path.Combine(parent.FullName, "globalgamemanagers")))
-                    return parent.FullName;
-
-                try
-                {
-                    foreach (var sub in Directory.GetDirectories(parent.FullName, "*_Data"))
-                        if (File.Exists(Path.Combine(sub, "globalgamemanagers")))
-                            return sub;
-                }
-                catch { }
-            }
-
-            // 5. búsqueda acotada (Android/consolas/ports con estructura rara)
-            return SearchDataDir(path, 0);
+            return p;
         }
 
-        private static string SearchDataDir(string dir, int depth)
+        /// <summary>
+        /// ¿La carpeta tiene datos de Unity? NO se exige *_Data ni globalgamemanagers:
+        /// también valen un data.unity3d (build de archivo único), assets sueltos o bundles.
+        /// </summary>
+        public static bool LooksLikeUnityData(string dir)
         {
-            if (depth > 4)
-                return null;
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return false;
 
             try
             {
                 if (File.Exists(Path.Combine(dir, "globalgamemanagers")))
-                    return dir;
-
-                foreach (var sub in Directory.GetDirectories(dir))
-                {
-                    string name = Path.GetFileName(sub);
-                    if (name.Equals("Managed", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("aa", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("res", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("smali", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("lib", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    string found = SearchDataDir(sub, depth + 1);
-                    if (found != null)
-                        return found;
-                }
+                    return true;
+                if (File.Exists(Path.Combine(dir, "data.unity3d")))
+                    return true;
+                if (File.Exists(Path.Combine(dir, "resources.assets")))
+                    return true;
+                if (File.Exists(Path.Combine(dir, "level0")))
+                    return true;
+                if (Directory.GetFiles(dir, "*.assets").Length > 0)
+                    return true;
+                if (Directory.GetFiles(dir, "*.unity3d").Length > 0)
+                    return true;
+                if (Directory.GetFiles(dir, "*.bundle").Length > 0)
+                    return true;
+                if (Directory.GetFiles(dir, "*.split0").Length > 0)
+                    return true;
             }
             catch { }
 
-            return null;
+            return false;
+        }
+
+        /// <summary>
+        /// Localiza la carpeta de datos: acepta la carpeta del juego, la del .exe, una subcarpeta
+        /// *_Data con cualquier nombre, un data.unity3d o un APK descomprimido (assets/bin/Data).
+        /// </summary>
+        public static string FindDataDir(string path)
+        {
+            string start = NormalizePath(path);
+            if (start == null || !Directory.Exists(start))
+                return null;
+
+            // 1. la propia carpeta ya son los datos
+            if (LooksLikeUnityData(start))
+                return start;
+
+            // 2. APK descomprimido (apktool): assets/bin/Data
+            string android = Path.Combine(start, "assets", "bin", "Data");
+            if (LooksLikeUnityData(android))
+                return android;
+
+            // 3. búsqueda en anchura (3 niveles) desde la carpeta y desde su padre
+            var candidatos = new List<string>();
+            var nivel = new List<string> { start };
+            var visitados = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { start };
+
+            var padre = Directory.GetParent(start);
+            if (padre != null)
+            {
+                nivel.Add(padre.FullName);
+                visitados.Add(padre.FullName);
+            }
+
+            for (int d = 0; d < 3 && nivel.Count > 0; d++)
+            {
+                var siguiente = new List<string>();
+                foreach (var dir in nivel)
+                {
+                    string[] subs;
+                    try { subs = Directory.GetDirectories(dir); } catch { continue; }
+
+                    foreach (var sub in subs)
+                    {
+                        if (!visitados.Add(sub))
+                            continue;
+
+                        if (LooksLikeUnityData(sub))
+                            candidatos.Add(sub);
+                        else if (d < 2)
+                            siguiente.Add(sub);
+                    }
+                }
+                nivel = siguiente;
+            }
+
+            if (candidatos.Count == 0)
+                return null;
+
+            // primero una *_Data, luego la que tenga globalgamemanagers, luego data.unity3d
+            return candidatos
+                .OrderByDescending(c => Path.GetFileName(c).EndsWith("_Data", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(c => File.Exists(Path.Combine(c, "globalgamemanagers")))
+                .ThenByDescending(c => File.Exists(Path.Combine(c, "data.unity3d")))
+                .ThenBy(c => c.Length)
+                .First();
         }
 
         public static string FindClassDataPublic() => FindClassData();
@@ -271,7 +321,10 @@ namespace Zub
         {
             string data = FindDataDir(gamePath);
             if (data == null)
-                throw new Exception("No encuentro la carpeta *_Data de Unity en:\n" + gamePath);
+                throw new Exception("No encuentro datos de Unity en:\n" + gamePath +
+                    "\n\nHe mirado la carpeta, su padre y hasta 3 niveles de subcarpetas, buscando " +
+                    "globalgamemanagers, *.assets, level*, data.unity3d o *.bundle " +
+                    "(y assets/bin/Data si es un APK descomprimido).");
 
             DataDir = data;
             ManagedDir = ResolveManagedDir(managedDir, data);
@@ -329,7 +382,8 @@ namespace Zub
             var skipExt = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 ".resS", ".resource", ".dll", ".json", ".txt", ".xml", ".config", ".info",
-                ".pdb", ".mdb", ".exe", ".bat", ".ini", ".dat", ".png", ".jpg", ".ico", ".so", ".dylib"
+                ".pdb", ".mdb", ".exe", ".bat", ".ini", ".dat", ".png", ".jpg", ".ico", ".so", ".dylib",
+                ".unity3d", ".bundle"
             };
 
             int splits = 0;
@@ -480,6 +534,8 @@ namespace Zub
             foreach (var dir in dirs.Distinct())
             {
                 try { bundles.AddRange(Directory.GetFiles(dir, "*.bundle")); } catch { }
+                // builds de archivo único (data.unity3d) y bundles con otra extensión
+                try { bundles.AddRange(Directory.GetFiles(dir, "*.unity3d")); } catch { }
             }
 
             log?.Invoke($"Bundles buscados en: {string.Join(" | ", dirs.Distinct())} → {bundles.Count}");
