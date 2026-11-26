@@ -1,4 +1,4 @@
-# ZeroUnity Batch 0.13
+# ZeroUnity Batch 1.0.2
 
 Motor: AssetsTools.NET (el mismo de UABEA Next).
 Interfaz: Avalonia 11 + AvaloniaEdit (editor virtualizado con resaltado).
@@ -47,6 +47,15 @@ Preparar/Descartar trabajan igual sobre un objeto individual.
 - Carpetas Android (APK descomprimido): detecta sola `assets/bin/Data`.
 - La búsqueda mira también los cambios preparados, no solo el disco:
   si preparas un texto y buscas la traducción, aparece.
+- **Vista previa**: la imagen abre ajustada al panel, la rueda hace zoom sobre el
+  punto donde está el cursor, se arrastra con el botón izquierdo y el doble clic
+  vuelve a ajustar. Las imágenes pequeñas se amplían (hasta 8×) al ajustar.
+- **Texturas**: se leen aunque los datos estén dentro del bundle o del `.unity3d`
+  (antes salía "no se pudo leer el bloque de datos (resS ausente)").
+- **Objetos de bundle con nombre real** (antes todos "Unnamed asset").
+- **Comando `compare`**: compara tu carpeta exportada con UABEA contra la nuestra
+  y dice exactamente qué falta y qué difiere (ver "Compatibilidad con UABEA").
+- Exportación e importación en paralelo: ~3× más rápido.
 
 ## Portátil: no hace falta instalar nada
 
@@ -124,10 +133,24 @@ falle al escribirse. El registro resume `exactos / por nombre / por PathID / cop
 
 ## Compatibilidad con UABEA
 
-Los JSON exportados por UABEA Next 4 se leen tal cual (mismo formato).
-Los archivos con `-CAB-<hash>-` en el nombre vienen de AssetBundles
-(Addressables) y todavía no se abren: salen como "sin pareja" y se informan
-en el registro sin interrumpir el resto.
+Los JSON exportados por UABEA Next 4 se leen tal cual (mismo formato), incluidos
+los que llevan `-CAB-<hash>-` en el nombre (AssetBundles/Addressables).
+
+Para saber cómo de iguales vamos en un juego concreto, exporta el mismo tipo de
+objeto con UABEA y con nosotros y compara las dos carpetas:
+
+```text
+ZeroUnityBatch.exe compare "ruta\export_uabea" "ruta\export_zub" --exact --out informe.csv
+```
+
+Dice cuántos archivos son idénticos byte a byte, cuántos nos faltan (o van con otro
+nombre) y cuántos difieren; con `--exact` compara el contenido, no solo el tamaño.
+Devuelve 3 si hay cualquier diferencia, así se puede usar en un script.
+
+Ejemplo real (ZH-GALxSurvival, 17.920 objetos): 17.583 idénticos, 24 con otro
+nombre, 1 sin pareja y 312 distintos — de esos 312, **311 son objetos que UABEA
+tampoco pudo leer** (`Asset failed to deserialize.`) y en 189 de ellos nosotros sí
+sacamos el JSON completo.
 
 ## Pendiente
 

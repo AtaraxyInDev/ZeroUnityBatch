@@ -96,9 +96,14 @@ namespace Zub
                 byte[] data;
                 try
                 {
-                    var reader = entry.Inst.file.Reader;
-                    reader.Position = entry.Position;
-                    data = reader.ReadBytes((int)entry.Size);
+                    // el reader es compartido por todos los objetos del serializado: sin lock,
+                    // dos búsquedas/previsualizaciones a la vez leen basura o revientan
+                    lock (entry.Inst)
+                    {
+                        var reader = entry.Inst.file.Reader;
+                        reader.Position = entry.Position;
+                        data = reader.ReadBytes((int)entry.Size);
+                    }
                 }
                 catch
                 {
@@ -145,9 +150,25 @@ namespace Zub
             return hits;
         }
 
+        /// <summary>Quita bytes de control y caracteres de relleno del fragmento mostrado.</summary>
+        private static string Limpiar(string frag)
+        {
+            if (string.IsNullOrEmpty(frag))
+                return "";
+
+            var sb = new StringBuilder(frag.Length);
+            foreach (char c in frag)
+                sb.Append(c < 32 || c == 127 || c == 65533 ? ' ' : c);
+
+            string limpio = sb.ToString();
+            while (limpio.Contains("  "))
+                limpio = limpio.Replace("  ", " ");
+            return limpio.Trim();
+        }
+
         private static string Snip(string frag)
         {
-            frag = frag.Replace((char)13, ' ').Replace((char)10, ' ');
+            frag = Limpiar(frag);
             while (frag.Contains("  "))
                 frag = frag.Replace("  ", " ");
             return frag.Trim();

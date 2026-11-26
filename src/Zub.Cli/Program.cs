@@ -30,6 +30,9 @@ internal static class Program
                 return 1;
             }
 
+            if (cmd == "compare" || cmd == "comparar")
+                return CompareCmd(opts);
+
             if (cmd == "scan")
                 return Scan(game, opts);
             if (cmd == "export")
@@ -75,6 +78,9 @@ internal static class Program
 
             if (cmd == "gonames")
                 return GoNames(game, opts);
+
+            if (cmd == "search")
+                return SearchCmd(game, opts);
 
             if (cmd == "roundtrip")
                 return RoundTrip(game, opts);
@@ -571,6 +577,125 @@ internal static class Program
         Console.WriteLine($"Texturas: {ok} ok, {fail} sin previsualizar, {sw.Elapsed.TotalSeconds:F2}s");
         foreach (var kv in formats.OrderByDescending(k => k.Value).Take(12))
             Console.WriteLine($"  {kv.Key,-28} {kv.Value}");
+        return 0;
+    }
+
+
+
+    /// <summary>
+    /// Compara dos carpetas de exportación (por ejemplo la de UABEA y la nuestra) y dice
+    /// exactamente qué objetos faltan y cuáles salieron distintos. Sirve para medir la paridad
+    /// con UABEA en CUALQUIER juego, sin fiarse de la palabra de nadie.
+    /// </summary>
+    private static int CompareCmd(Opts o)
+    {
+        var pos = o.Positionals.Where(x => x != "compare" && x != "comparar").ToList();
+        if (pos.Count < 2)
+        {
+            Console.Error.WriteLine("Uso: zub compare <carpetaA> <carpetaB> [--exact] [--out informe.csv]");
+            Console.Error.WriteLine("  A = referencia (UABEA), B = lo nuestro.");
+            return 1;
+        }
+
+        string dirA = pos[0], dirB = pos[1];
+        bool exacto = o.Get("--exact") != null;
+        string salida = o.Get("--out");
+
+        if (!Directory.Exists(dirA) || !Directory.Exists(dirB))
+        {
+            Console.Error.WriteLine("No existe alguna de las carpetas.");
+            return 1;
+        }
+
+        Dictionary<string, string> Indexar(string dir)
+        {
+            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                d[Path.GetFileName(f)] = f;
+            return d;
+        }
+
+        var a = Indexar(dirA);
+        var b = Indexar(dirB);
+
+        var soloA = a.Keys.Where(k => !b.ContainsKey(k)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+        var soloB = b.Keys.Where(k => !a.ContainsKey(k)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+        var distintos = new List<string>();
+        int iguales = 0;
+
+        foreach (var k in a.Keys.Where(k => b.ContainsKey(k)))
+        {
+            var fa = new FileInfo(a[k]);
+            var fb = new FileInfo(b[k]);
+
+            bool dif = fa.Length != fb.Length;
+            if (!dif && exacto && fa.Length <= 8 * 1024 * 1024)
+                dif = !File.ReadAllBytes(a[k]).AsSpan().SequenceEqual(File.ReadAllBytes(b[k]));
+
+            if (dif) distintos.Add(k); else iguales++;
+        }
+
+        Console.WriteLine($"A (referencia): {a.Count} archivos  ·  B (nuestra): {b.Count} archivos");
+        Console.WriteLine($"Iguales: {iguales}");
+        Console.WriteLine($"Solo en A (nos falta): {soloA.Count}");
+        Console.WriteLine($"Solo en B (nos sobra): {soloB.Count}");
+        Console.WriteLine($"Distintos: {distintos.Count}" + (exacto ? " (comparación byte a byte)" : " (por tamaño; usa --exact para byte a byte)"));
+
+        void Muestra(string titulo, List<string> lista)
+        {
+            if (lista.Count == 0)
+                return;
+            Console.WriteLine();
+            Console.WriteLine(titulo + ":");
+            foreach (var n in lista.Take(20))
+                Console.WriteLine("  · " + n);
+            if (lista.Count > 20)
+                Console.WriteLine($"  … y {lista.Count - 20} más");
+        }
+
+        Muestra("Nos falta (está en la referencia)", soloA);
+        Muestra("Nos sobra", soloB);
+        Muestra("Distintos", distintos);
+
+        if (!string.IsNullOrEmpty(salida))
+        {
+            using var w = new StreamWriter(salida, false, new System.Text.UTF8Encoding(false));
+            w.WriteLine("estado,archivo");
+            foreach (var n in soloA) w.WriteLine("falta," + n);
+            foreach (var n in soloB) w.WriteLine("sobra," + n);
+            foreach (var n in distintos) w.WriteLine("distinto," + n);
+            Console.WriteLine();
+            Console.WriteLine("Informe: " + salida);
+        }
+
+        return soloA.Count == 0 && soloB.Count == 0 && distintos.Count == 0 ? 0 : 3;
+    }
+
+    private static int SearchCmd(string game, Opts o)
+    {
+        string q = o.Positionals.Skip(1).FirstOrDefault() ?? o.Get("--q");
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            Console.Error.WriteLine("Falta el texto a buscar.");
+            return 1;
+        }
+
+        int limit = int.TryParse(o.Get("--limit"), out int l) ? l : 40;
+
+        using var proj = new UnityProject();
+        proj.Open(game, s => Console.Error.WriteLine(s));
+
+        var pool = proj.Assets
+            .Where(a => a.ClassId == AssetTypes.MonoBehaviour || a.ClassId == AssetTypes.TextAsset)
+            .ToList();
+
+        var sw = Stopwatch.StartNew();
+        var hits = SearchEngine.Search(proj, pool, q, false, true, Math.Max(limit, 1000), 8L * 1024 * 1024,
+            (d, t) => { if (d % 10000 == 0) Console.Error.WriteLine("  " + d + "/" + t); });
+
+        Console.WriteLine(hits.Count.ToString("N0") + " coincidencias de \"" + q + "\" en " + pool.Count.ToString("N0") + " objetos (" + sw.Elapsed.TotalSeconds.ToString("F1") + "s)");
+        foreach (var h in hits.Take(limit))
+            Console.WriteLine("  " + Path.GetFileName(h.Entry.ContainerPath) + "#" + h.Entry.PathId + "  [" + h.Entry.TypeText + "]  " + h.Matches + "x  " + h.Snippet);
         return 0;
     }
 

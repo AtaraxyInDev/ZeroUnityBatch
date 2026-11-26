@@ -41,7 +41,19 @@ namespace Zub
 
             foreach (var e in poolList)
             {
-                byContainerAndId[(e.ContainerName.ToLowerInvariant(), e.PathId)] = e;
+                string cont = e.ContainerName.ToLowerInvariant();
+                byContainerAndId[(cont, e.PathId)] = e;
+
+                // los nombres de archivo de UABEA/nuestros separan "CAB-<hash>" del resto con '-':
+                // se registra tambien sin el prefijo (y sin extension) para que empareje igual
+                if (cont.StartsWith("cab-"))
+                    byContainerAndId[(cont.Substring(4), e.PathId)] = e;
+                else if (cont.Length == 32)
+                    byContainerAndId[("cab-" + cont, e.PathId)] = e;
+
+                string sinExt = System.IO.Path.GetFileNameWithoutExtension(cont);
+                if (sinExt != cont && sinExt.Length > 0)
+                    byContainerAndId[(sinExt, e.PathId)] = e;
 
                 if (!byId.TryGetValue(e.PathId, out var l))
                     byId[e.PathId] = l = new List<AssetEntry>();
@@ -80,10 +92,17 @@ namespace Zub
 
                 stats.Files++;
 
-                string prefix = stem.Substring(0, m.Index);
+                string prefix = stem.Substring(0, m.Index).TrimEnd('-');
                 int sep = prefix.LastIndexOf('-');
                 string contenedor = sep >= 0 ? prefix.Substring(sep + 1) : "";
                 string nombre = sep >= 0 ? prefix.Substring(0, sep) : prefix;
+
+                // "...-CAB-<hash>" -> el contenedor real es "CAB-<hash>"
+                if (contenedor.Length == 32 && nombre.EndsWith("CAB", StringComparison.OrdinalIgnoreCase))
+                {
+                    contenedor = "CAB-" + contenedor;
+                    nombre = nombre.Substring(0, nombre.Length - 3).TrimEnd('-');
+                }
 
                 if (contenedor.Length > 0 &&
                     byContainerAndId.TryGetValue((contenedor.ToLowerInvariant(), pathId), out var direct) &&

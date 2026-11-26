@@ -14,7 +14,9 @@ namespace Zub
         public static string ReadMonoJson(UnityProject proj, AssetEntry entry)
         {
             var tempField = proj.GetTemplateField(entry.Inst, entry.Position, entry.ClassId, entry.MonoId);
-            var value = tempField.MakeValue(entry.Inst.file.Reader, entry.Position);
+            var value = proj.ReadFieldSafe(entry, tempField);
+            if (value == null)
+                return "";
             return JsonCodec.Export(value);
         }
 

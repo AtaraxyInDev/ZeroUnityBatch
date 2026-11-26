@@ -139,10 +139,69 @@ namespace Zub
             Action<int, int> progress = null)
         {
             errors = new List<string>();
-            var edits = new List<RawEdit>();
             var list = items.ToList();
+            var edits = new RawEdit[list.Count];
+            var fallos = new string[list.Count];
+            var plantillas = new AssetTypeTemplateField[list.Count];
+            var pesados = new HashSet<int>();
 
+            // fase 1 (serie): plantillas (usan las cachés de AssetsManager, no son reentrantes)
             for (int i = 0; i < list.Count; i++)
+            {
+                var entry = list[i].Entry;
+                if (entry.ClassId == AssetTypes.TextAsset || entry.ClassId == AssetTypes.Texture2D)
+                {
+                    pesados.Add(i);
+                    continue;
+                }
+
+                try
+                {
+                    plantillas[i] = proj.GetTemplateField(entry.Inst, entry.Position, entry.ClassId, entry.MonoId);
+                }
+                catch (Exception ex)
+                {
+                    fallos[i] = $"{Path.GetFileName(list[i].SourceFile)}: {ex.Message}";
+                }
+
+                if (progress != null && (i % 25 == 0 || i == list.Count - 1))
+                    progress(i + 1, list.Count);
+            }
+
+            // fase 2 (paralela): leer JSON + serializar el objeto
+            int hilos = Math.Max(1, Math.Min(Environment.ProcessorCount, 16));
+            if (int.TryParse(Environment.GetEnvironmentVariable("ZUB_THREADS"), out int forzados))
+                hilos = Math.Max(1, Math.Min(forzados, 64));
+
+            var pendientes = new List<int>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!pesados.Contains(i) && fallos[i] == null)
+                    pendientes.Add(i);
+            }
+
+            System.Threading.Tasks.Parallel.For(0, pendientes.Count,
+                new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = hilos }, k =>
+            {
+                int i = pendientes[k];
+                var item = list[i];
+                try
+                {
+                    string json = File.ReadAllText(item.SourceFile);
+                    byte[] data = JsonCodec.Import(plantillas[i], json, out string err);
+                    if (data == null)
+                        fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {err}";
+                    else
+                        edits[i] = new RawEdit { Entry = item.Entry, Data = data, Label = Path.GetFileName(item.SourceFile) };
+                }
+                catch (Exception ex)
+                {
+                    fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {ex.Message}";
+                }
+            });
+
+            // fase 3 (serie): TextAsset y texturas (usan los readers compartidos)
+            foreach (int i in pesados)
             {
                 var item = list[i];
                 try
@@ -156,42 +215,41 @@ namespace Zub
                         data = ContentReader.BuildTextAsset(proj, entry, fileBytes, out string err);
                         if (data == null)
                         {
-                            errors.Add($"{Path.GetFileName(item.SourceFile)}: {err}");
-                            continue;
-                        }
-                    }
-                    else if (entry.ClassId == AssetTypes.Texture2D)
-                    {
-                        data = TextureReader.Import(proj, entry, item.SourceFile, out string err);
-                        if (data == null)
-                        {
-                            errors.Add($"{Path.GetFileName(item.SourceFile)}: {err}");
+                            fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {err}";
                             continue;
                         }
                     }
                     else
                     {
-                        string json = File.ReadAllText(item.SourceFile);
-                        var tempField = proj.GetTemplateField(entry.Inst, entry.Position, entry.ClassId, entry.MonoId);
-                        data = JsonCodec.Import(tempField, json, out string err);
+                        data = TextureReader.Import(proj, entry, item.SourceFile, out string err);
                         if (data == null)
                         {
-                            errors.Add($"{Path.GetFileName(item.SourceFile)}: {err}");
+                            fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {err}";
                             continue;
                         }
                     }
 
-                    edits.Add(new RawEdit { Entry = entry, Data = data, Label = Path.GetFileName(item.SourceFile) });
+                    edits[i] = new RawEdit { Entry = entry, Data = data, Label = Path.GetFileName(item.SourceFile) };
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{Path.GetFileName(item.SourceFile)}: {ex.Message}");
+                    fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {ex.Message}";
                 }
-
-                progress?.Invoke(i + 1, list.Count);
             }
 
-            return edits;
+            var lista = new List<RawEdit>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (fallos[i] != null)
+                    errors.Add(fallos[i]);
+                else if (edits[i] != null)
+                    lista.Add(edits[i]);
+            }
+
+            if (progress != null)
+                progress(list.Count, list.Count);
+
+            return lista;
         }
 
         /// <summary>Importa una carpeta completa (una sola escritura por contenedor).</summary>

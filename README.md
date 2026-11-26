@@ -46,9 +46,25 @@ Containers are discovered automatically: `globalgamemanagers`, `resources.assets
 * **One index, not one file at a time.** A full game (555,549 objects / 41 containers) is indexed
   in seconds and stays in memory.
 
+* **Parallel export.** Names, templates and the object bytes are read in one serial pass (an
+  `AssetsFileReader` is not re-entrant); deserialising and writing the JSON then runs on every core,
+  each thread with its own reader over a zeroed copy of the object.
+* **No `JToken` tree on export.** A purpose-built writer emits the same bytes UABEA does
+  (2-space indent, CRLF, `1.0`, `"Infinity"`) without building an object graph per asset.
+
 Measured on *Third Crisis Neon Nights* (Unity 2022.3, 555k objects):
 4,739 MonoBehaviour JSON re-imported and saved in **~28 s**; a 92 MB Addressables bundle
 re-imported and recompressed in **30–50 s**.
+
+Measured on *ZH-GALxSurvival* (Unity 6, `data.unity3d` + 44 Addressables bundles, 81k objects),
+17,919 MonoBehaviours:
+
+| Operation | Before | Now |
+|---|---|---|
+| Export all MonoBehaviour JSON | 126 s | **43 s** |
+| Import (dry-run, 17,250 objects) | ~170 s | **66 s** |
+
+Export output is byte-for-byte reproducible between runs.
 
 ## Features for translation work
 
@@ -94,6 +110,8 @@ zub csv       --from <file.csv> [--dry-run]     translation sheet injection
 zub tex / texinfo / settex           Texture2D export, header info, single re-import
 zub gonames   --find <text>          which GameObject holds this text
 zub match     --from <dir>           cross-build matching report
+zub compare   <dirUABEA> <dirZub> [--exact] [--out informe.csv]
+                                     parity check against a UABEA export (exit 3 if they differ)
 zub android / dlls / apk             Android helpers
 ```
 

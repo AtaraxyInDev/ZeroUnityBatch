@@ -38,6 +38,7 @@ namespace Zub.App
         private Border _editorHost;
         private Border _findBar;
         private ScrollViewer _scrollImage;
+        private Panel _imageHost;
         private Grid _gridBody;
         private Panel _emptyHint;
         private Expander _expanderLog;
@@ -139,6 +140,8 @@ namespace Zub.App
             _editorHost = Find<Border>("EditorHost");
             _findBar = Find<Border>("FindBar");
             _scrollImage = Find<ScrollViewer>("ScrollImage");
+            _imageHost = Find<Panel>("ImageHost");
+            WireImageZoom();
             _expanderLog = this.GetVisualDescendants().OfType<Expander>().FirstOrDefault();
 
             CreateEditor();
@@ -808,6 +811,7 @@ namespace Zub.App
                         using var msN = new MemoryStream(pngNuevo);
                         _imgPreview.Source = new Bitmap(msN);
                         _scrollImage.IsVisible = true;
+                        FitImage();
                         SetLoading(false);
                         _txtPreviewInfo.Text += "   ·   imagen nueva preparada";
                         _btnEdit.IsEnabled = false;
@@ -825,6 +829,7 @@ namespace Zub.App
                         using var ms = new MemoryStream(t.Png);
                         _imgPreview.Source = new Bitmap(ms);
                         _scrollImage.IsVisible = true;
+                        FitImage();
                         _txtPreviewInfo.Text += $"   ·   {t.Width}×{t.Height}   ·   {t.Format}" +
                                                 (t.MipCount > 1 ? $"   ·   {t.MipCount} mips" : "");
                     }
@@ -1549,6 +1554,22 @@ namespace Zub.App
         private async void BtnSearch_Click(object sender, RoutedEventArgs e)
         {
             if (_proj == null) return;
+            // el Enter del cuadro de texto tambien llega aqui: dos busquedas a la vez
+            // comparten los readers de los serializados y revientan el programa
+            if (_searchRunning) return;
+            _searchRunning = true;
+            try
+            {
+                await RunSearchAsync();
+            }
+            finally
+            {
+                _searchRunning = false;
+            }
+        }
+
+        private async Task RunSearchAsync()
+        {
 
             string query = (_txtQuery.Text ?? "").Trim();
             if (query.Length == 0) { ClearContentSearch(); return; }
@@ -1721,6 +1742,190 @@ namespace Zub.App
             {
                 Log("ERROR autotest: " + ex);
             }
+        }
+
+        // ---- zoom / arrastre de la previsualización de imagen ----
+        private volatile bool _searchRunning;
+        private double _imgZoom;            // 0 = ajustado al panel
+        private bool _panning;
+        private Point _panOrigen;
+        private Vector _panOffset;
+
+        private void WireImageZoom()
+        {
+            if (_scrollImage == null || _imgPreview == null)
+                return;
+
+            _scrollImage.PointerWheelChanged += (s, e) =>
+            {
+                if (_imgPreview.Source == null)
+                    return;
+
+                double baseZ = _imgZoom > 0 ? _imgZoom : EscalaAjuste();
+                double destino = e.Delta.Y > 0 ? baseZ * 1.25 : baseZ / 1.25;
+                ZoomEn(destino, e.GetPosition(_scrollImage));
+                e.Handled = true;
+            };
+
+            var panel = _imageHost ?? (Control)_imgPreview;
+            panel.PointerPressed += (s, e) =>
+            {
+                var p = e.GetCurrentPoint(_imgPreview);
+                if (!p.Properties.IsLeftButtonPressed)
+                    return;
+
+                if (e.ClickCount == 2)
+                {
+                    FitImage();
+                    e.Handled = true;
+                    return;
+                }
+
+                _panning = true;
+                _panOrigen = e.GetPosition(_scrollImage);
+                _panOffset = _scrollImage.Offset;
+                e.Pointer.Capture(panel);
+                e.Handled = true;
+            };
+
+            panel.PointerMoved += (s, e) =>
+            {
+                if (!_panning)
+                    return;
+                var p = e.GetPosition(_scrollImage);
+                double x = _panOffset.X - (p.X - _panOrigen.X);
+                double y = _panOffset.Y - (p.Y - _panOrigen.Y);
+                _scrollImage.Offset = new Vector(Math.Max(0, x), Math.Max(0, y));
+                e.Handled = true;
+            };
+
+            panel.PointerReleased += (s, e) =>
+            {
+                if (!_panning)
+                    return;
+                _panning = false;
+                e.Pointer.Capture(null);
+                e.Handled = true;
+            };
+        }
+
+        private double EscalaAjuste()
+        {
+            var px = (_imgPreview?.Source as Bitmap)?.PixelSize;
+            if (px == null || px.Value.Width <= 0 || px.Value.Height <= 0)
+                return 1;
+
+            var vp = _scrollImage.Viewport;
+            double vw = Math.Max(64, (vp.Width > 0 ? vp.Width : _scrollImage.Bounds.Width) - 24);
+            double vh = Math.Max(64, (vp.Height > 0 ? vp.Height : _scrollImage.Bounds.Height) - 24);
+            double s = Math.Min(vw / px.Value.Width, vh / px.Value.Height);
+            // las imagenes pequenas se amplian para llenar el panel (hasta 8x)
+            return s <= 0 ? 1 : Math.Min(s, 8.0);
+        }
+
+        /// <summary>Ajusta la imagen al panel (doble clic o al abrir otra textura).</summary>
+        private void FitImage()
+        {
+            if (_imgPreview?.Source is not Bitmap)
+                return;
+
+            _imgZoom = EscalaAjuste();
+            ApplyZoom();
+            Dispatcher.UIThread.Post(() => _scrollImage.Offset = new Vector(0, 0), DispatcherPriority.Loaded);
+        }
+
+        /// <summary>El panel contenedor nunca es menor que el viewport: así la imagen queda centrada.</summary>
+        private void AjustarHost(double ancho, double alto)
+        {
+            if (_imageHost == null)
+                return;
+
+            var vp = _scrollImage?.Viewport ?? default;
+            double vw = vp.Width > 0 ? vp.Width : (_scrollImage?.Bounds.Width ?? 0);
+            double vh = vp.Height > 0 ? vp.Height : (_scrollImage?.Bounds.Height ?? 0);
+
+            _imageHost.Width = Math.Max(ancho, vw);
+            _imageHost.Height = Math.Max(alto, vh);
+        }
+
+        private double MargenX()
+        {
+            if (_imageHost == null || _imgPreview == null)
+                return 0;
+            double w = _imgPreview.Width;
+            if (double.IsNaN(w))
+                return 0;
+            return Math.Max(0, (_imageHost.Width - w) / 2);
+        }
+
+        private double MargenY()
+        {
+            if (_imageHost == null || _imgPreview == null)
+                return 0;
+            double h = _imgPreview.Height;
+            if (double.IsNaN(h))
+                return 0;
+            return Math.Max(0, (_imageHost.Height - h) / 2);
+        }
+
+        /// <summary>Zoom anclado al puntero: el píxel que hay bajo el cursor no se mueve.</summary>
+        private void ZoomEn(double destino, Point ancla)
+        {
+            if (_imgPreview?.Source is not Bitmap bmp)
+                return;
+
+            var px = bmp.PixelSize;
+            if (px.Width <= 0 || px.Height <= 0)
+                return;
+
+            double viejo = _imgZoom > 0 ? _imgZoom : EscalaAjuste();
+            if (viejo <= 0)
+                viejo = 1;
+
+            // punto de la imagen (en píxeles) bajo el cursor, descontando el centrado del host
+            double ix = (_scrollImage.Offset.X + ancla.X - MargenX()) / viejo;
+            double iy = (_scrollImage.Offset.Y + ancla.Y - MargenY()) / viejo;
+
+            _imgZoom = Math.Clamp(destino, 0.02, 64.0);
+            ApplyZoom();
+
+            double nx = MargenX() + ix * _imgZoom - ancla.X;
+            double ny = MargenY() + iy * _imgZoom - ancla.Y;
+
+            // el nuevo tamaño se aplica en el siguiente ciclo de layout: mover el scroll después
+            Dispatcher.UIThread.Post(
+                () => _scrollImage.Offset = new Vector(Math.Max(0, nx), Math.Max(0, ny)),
+                DispatcherPriority.Loaded);
+        }
+
+        private void ApplyZoom()
+        {
+            if (_imgPreview?.Source is not Bitmap bmp)
+                return;
+
+            var px = bmp.PixelSize;
+            double w = Math.Max(1, px.Width * _imgZoom);
+            double h = Math.Max(1, px.Height * _imgZoom);
+
+            _imgPreview.Stretch = Stretch.Fill;
+            _imgPreview.Width = w;
+            _imgPreview.Height = h;
+            _imgPreview.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
+            _imgPreview.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            _imgPreview.Cursor = new Cursor(StandardCursorType.Hand);
+
+            AjustarHost(w, h);
+            AnotarZoom();
+        }
+
+        /// <summary>Muestra/actualiza el porcentaje de zoom en la línea de información.</summary>
+        private void AnotarZoom()
+        {
+            if (_txtPreviewInfo == null)
+                return;
+
+            string txt = System.Text.RegularExpressions.Regex.Replace(_txtPreviewInfo.Text ?? "", @"\s+·\s+\d+\s?%", "");
+            _txtPreviewInfo.Text = _imgZoom > 0 ? txt + "   ·   " + Math.Round(_imgZoom * 100) + "%" : txt;
         }
 
         private sealed class LayoutState

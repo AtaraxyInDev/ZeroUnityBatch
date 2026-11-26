@@ -132,7 +132,7 @@ namespace Zub
                 if (campo == null)
                     return null;
 
-                var valor = campo.MakeValue(go.Inst.file.Reader, go.Position);
+                var valor = proj.ReadField(go.Inst, campo, go.Position);
                 if (valor == null)
                     return null;
 

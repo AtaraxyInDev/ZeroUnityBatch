@@ -196,7 +196,9 @@
 
               <ScrollViewer x:Name="ScrollImage" IsVisible="False" HorizontalScrollBarVisibility="Auto"
                             VerticalScrollBarVisibility="Auto">
-                <Image x:Name="ImgPreview" Stretch="None" />
+                <Panel x:Name="ImageHost" Background="Transparent">
+                  <Image x:Name="ImgPreview" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Panel>
               </ScrollViewer>
 
               <StackPanel x:Name="PanelEmpty" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">

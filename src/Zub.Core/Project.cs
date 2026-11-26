@@ -20,6 +20,8 @@ namespace Zub
         public string Name = "";
         public string TypeName = "";
         public string ScriptClass = "";
+        /// <summary>MonoBehaviour "stripped": no guarda datos, solo el TypeTree (UABEA los exporta vacios).</summary>
+        public bool Stripped;
 
         public string ContainerPath => Inst.path;
 
@@ -419,6 +421,7 @@ namespace Zub
                     {
                         LoadedContainers.Add(file);
                         instances[file] = inst;
+                        RegistrarNombre(file, inst);
                         if (inst.file.Metadata.TypeTreeEnabled)
                             ContainersWithTypeTree++;
                     }
@@ -490,6 +493,7 @@ namespace Zub
                     inst.path = kv.Key;
                     LoadedContainers.Add(kv.Key);
                     instances[kv.Key] = inst;
+                    RegistrarNombre(kv.Key, inst);
                     _streams.Add(ms);
                     Splits[kv.Key] = new SplitLocation
                     {
@@ -517,25 +521,42 @@ namespace Zub
         {
             var dirs = new List<string> { DataDir };
 
-            try
+            // Addressables: StreamingAssets\aa\<plataforma> en PC, assets\aa\Android en APK
+            var raices = new List<string>();
+            try { raices.Add(Path.Combine(DataDir, "StreamingAssets", "aa")); } catch { }
+            try { raices.Add(Path.GetFullPath(Path.Combine(DataDir, "..", "..", "aa"))); } catch { }
+
+            foreach (var raiz in raices)
             {
-                // assets/bin/Data  ->  assets/aa/Android
-                string aa = Path.GetFullPath(Path.Combine(DataDir, "..", "..", "aa", "Android"));
-                if (Directory.Exists(aa))
+                try
                 {
-                    dirs.Add(aa);
-                    foreach (var sub in Directory.GetDirectories(aa))
+                    if (!Directory.Exists(raiz))
+                        continue;
+
+                    dirs.Add(raiz);
+                    foreach (var sub in Directory.GetDirectories(raiz, "*", SearchOption.AllDirectories))
                         dirs.Add(sub);
                 }
+                catch { }
             }
-            catch { }
 
             var bundles = new List<string>();
+            var vistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var dir in dirs.Distinct())
             {
-                try { bundles.AddRange(Directory.GetFiles(dir, "*.bundle")); } catch { }
+                try
+                {
+                    foreach (var b in Directory.GetFiles(dir, "*.bundle"))
+                        if (vistos.Add(b)) bundles.Add(b);
+                }
+                catch { }
                 // builds de archivo único (data.unity3d) y bundles con otra extensión
-                try { bundles.AddRange(Directory.GetFiles(dir, "*.unity3d")); } catch { }
+                try
+                {
+                    foreach (var b in Directory.GetFiles(dir, "*.unity3d"))
+                        if (vistos.Add(b)) bundles.Add(b);
+                }
+                catch { }
             }
 
             log?.Invoke($"Bundles buscados en: {string.Join(" | ", dirs.Distinct())} → {bundles.Count}");
@@ -578,6 +599,8 @@ namespace Zub
                         inst.path = key;
                         LoadedContainers.Add(key);
                         instances[key] = inst;
+                        RegistrarNombre(key, inst);
+                        RegistrarNombre(interno, inst);
                         Bundles[key] = new BundleLocation
                         {
                             BundlePath = path,
@@ -621,7 +644,8 @@ namespace Zub
                             ClassId = info.TypeId,
                             MonoId = inst.file.GetScriptIndex(info),
                             Position = info.AbsoluteByteStart,
-                            Size = info.ByteSize
+                            Size = info.ByteSize,
+                            Stripped = info.Stripped != 0
                         };
                         entry.TypeName = AssetTypes.NameOf(entry.ClassId);
                         Assets.Add(entry);
@@ -738,12 +762,12 @@ namespace Zub
 
                 var monoTemp = Am.GetTemplateBaseField(e.Inst, reader, e.Position, e.ClassId, e.MonoId,
                     AssetReadFlags.ForceFromCldb | AssetReadFlags.SkipMonoBehaviourFields);
-                var monoBf = monoTemp.MakeValue(reader, e.Position);
+                var monoBf = ReadField(e.Inst, monoTemp, e.Position);
 
                 int fileId = monoBf["m_Script"].Children[0].AsInt;
                 long pathId = monoBf["m_Script"].Children[1].AsLong;
 
-                AssetsFileInstance target = fileId == 0 ? e.Inst : e.Inst.GetDependency(Am, fileId - 1);
+                AssetsFileInstance target = ResolveDependency(e.Inst, fileId);
                 var scriptInfo = target?.file.GetAssetInfo(pathId);
 
                 if (scriptInfo != null)
@@ -757,7 +781,7 @@ namespace Zub
                         var scriptTemp = Am.GetTemplateBaseField(target, target.file.Reader,
                             scriptInfo.AbsoluteByteStart, scriptInfo.TypeId, target.file.GetScriptIndex(scriptInfo),
                             AssetReadFlags.None);
-                        var scriptBf = scriptTemp.MakeValue(target.file.Reader, scriptInfo.AbsoluteByteStart);
+                        var scriptBf = ReadField(target, scriptTemp, scriptInfo.AbsoluteByteStart);
                         result = scriptBf["m_ClassName"].AsString ?? "";
                         scriptNameCache[pathId] = result;
                     }
@@ -774,6 +798,131 @@ namespace Zub
             AssetReadFlags flags = AssetReadFlags.None)
         {
             return Am.GetTemplateBaseField(inst, inst.file.Reader, position, classId, monoId, flags);
+        }
+
+        private readonly Dictionary<AssetsFileInstance, RefTypeManager> refMans = new Dictionary<AssetsFileInstance, RefTypeManager>();
+        private readonly Dictionary<AssetTypeReference, AssetTypeTemplateField> monoRefCache = new Dictionary<AssetTypeReference, AssetTypeTemplateField>();
+
+        /// <summary>
+        /// RefTypeManager de cada serializado: sin él, los objetos cuyo TypeTree tiene tipos
+        /// referenciados (Unity 6) fallan con "refMan MUST be set to deserialize objects with ref types".
+        /// </summary>
+        public RefTypeManager GetRefManager(AssetsFileInstance inst)
+        {
+            if (inst?.file == null)
+                return null;
+
+            if (refMans.TryGetValue(inst, out var cached))
+                return cached;
+
+            var rm = new RefTypeManager();
+            try { rm.FromTypeTree(inst.file.Metadata); } catch { }
+            try
+            {
+                if (Am.MonoTempGenerator != null)
+                    rm.WithMonoTemplateGenerator(inst.file.Metadata, Am.MonoTempGenerator, monoRefCache);
+            }
+            catch { }
+
+            refMans[inst] = rm;
+            return rm;
+        }
+
+        /// <summary>
+        /// Lee el objeto; si está "stripped" o el TypeTree no encaja con los bytes, devuelve la
+        /// plantilla con valores por defecto (es lo que hace UABEA al exportar esos objetos).
+        /// </summary>
+        public AssetTypeValueField ReadFieldSafe(AssetEntry entry, AssetTypeTemplateField temp)
+        {
+            if (!entry.Stripped)
+            {
+                try { return ReadField(entry.Inst, temp, entry.Position); }
+                catch { }
+            }
+
+            try { return ValueBuilder.DefaultValueFieldFromTemplate(temp); }
+            catch { return null; }
+        }
+
+        /// <summary>Lee el objeto aplicando el RefTypeManager correcto.</summary>
+        public AssetTypeValueField ReadField(AssetsFileInstance inst, AssetTypeTemplateField temp, long position)
+        {
+            return temp.MakeValue(inst.file.Reader, position, GetRefManager(inst));
+        }
+
+        private readonly Dictionary<string, AssetsFileInstance> byFileName = new Dictionary<string, AssetsFileInstance>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Registra el serializado por su nombre de archivo (para resolver dependencias).</summary>
+        private void RegistrarNombre(string key, AssetsFileInstance inst)
+        {
+            if (string.IsNullOrEmpty(key) || inst == null)
+                return;
+
+            try
+            {
+                string nombre = Path.GetFileName(key);
+                if (!string.IsNullOrEmpty(nombre) && !byFileName.ContainsKey(nombre))
+                    byFileName[nombre] = inst;
+
+                string sinExt = Path.GetFileNameWithoutExtension(key);
+                if (!string.IsNullOrEmpty(sinExt) && !byFileName.ContainsKey(sinExt))
+                    byFileName[sinExt] = inst;
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Resuelve una dependencia externa (m_FileID) también cuando el asset vive dentro de un
+        /// bundle: los externals apuntan a "archive:/CAB-xxx/CAB-xxx" y GetDependency no los encuentra.
+        /// </summary>
+        public AssetsFileInstance ResolveDependency(AssetsFileInstance inst, int fileId)
+        {
+            if (fileId <= 0)
+                return inst;
+
+            int idx = fileId - 1;
+
+            try
+            {
+                var externals = inst?.file?.Metadata?.Externals;
+                if (externals == null || idx < 0 || idx >= externals.Count)
+                    return null;
+
+                var ext = externals[idx];
+                string path = ext.PathName;
+                if (string.IsNullOrEmpty(path)) path = ext.VirtualAssetPathName;
+                if (string.IsNullOrEmpty(path)) path = ext.OriginalPathName;
+                if (path == null) path = "";
+                if (path.Length > 0)
+                {
+                    var claves = new List<string> { path };
+                    if (path.StartsWith("archive:/"))
+                        claves.Add(path.Substring(9));
+                    claves.Add(Path.GetFileName(path));
+                    claves.Add(Path.GetFileNameWithoutExtension(path));
+
+                    foreach (var k in claves)
+                    {
+                        if (string.IsNullOrEmpty(k))
+                            continue;
+                        if (instances.TryGetValue(k, out var hit) && hit != null)
+                            return hit;
+                        if (byFileName.TryGetValue(k, out hit) && hit != null)
+                            return hit;
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                var dep = inst.GetDependency(Am, idx);
+                if (dep != null)
+                    return dep;
+            }
+            catch { }
+
+            return null;
         }
 
         public void PrimeNames(IEnumerable<AssetEntry> entries)

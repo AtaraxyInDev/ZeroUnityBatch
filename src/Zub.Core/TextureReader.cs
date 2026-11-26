@@ -44,7 +44,10 @@ namespace Zub
                 if (platformBlobField != null && platformBlobField.Children.Count > 0)
                     platformBlobField.Children[0].ValueType = AssetValueType.ByteArray;
 
-                var baseField = tempField.MakeValue(entry.Inst.file.Reader, entry.Position);
+                AssetTypeValueField baseField;
+                lock (entry.Inst)
+                    baseField = proj.ReadField(entry.Inst, tempField, entry.Position);
+
                 TextureFile tex = TextureFile.ReadTextureFile(baseField);
 
                 info.Width = tex.m_Width;
@@ -107,7 +110,7 @@ namespace Zub
             try
             {
                 var tf = proj.GetTemplateField(entry.Inst, entry.Position, entry.ClassId, entry.MonoId);
-                var bf = tf.MakeValue(entry.Inst.file.Reader, entry.Position);
+                var bf = proj.ReadField(entry.Inst, tf, entry.Position);
 
                 string v(string n)
                 {
@@ -147,7 +150,7 @@ namespace Zub
             try
             {
                 var tf = proj.GetTemplateField(entry.Inst, entry.Position, entry.ClassId, entry.MonoId);
-                var bf = tf.MakeValue(entry.Inst.file.Reader, entry.Position);
+                var bf = proj.ReadField(entry.Inst, tf, entry.Position);
                 TextureFile tex = TextureFile.ReadTextureFile(bf);
 
                 w = tex.m_Width;
@@ -176,7 +179,10 @@ namespace Zub
                 if (platformBlobField != null && platformBlobField.Children.Count > 0)
                     platformBlobField.Children[0].ValueType = AssetValueType.ByteArray;
 
-                var baseField = tempField.MakeValue(entry.Inst.file.Reader, entry.Position);
+                AssetTypeValueField baseField;
+                lock (entry.Inst)
+                    baseField = proj.ReadField(entry.Inst, tempField, entry.Position);
+
                 TextureFile tex = TextureFile.ReadTextureFile(baseField);
 
                 if (tex.m_Width == 0 || tex.m_Height == 0)
@@ -311,25 +317,101 @@ namespace Zub
 
         private static byte[] GetRawData(TextureFile tex, AssetsFileInstance inst)
         {
-            if (tex.m_StreamData.size != 0 && !string.IsNullOrEmpty(tex.m_StreamData.path))
+            if (tex.m_StreamData.size == 0 || string.IsNullOrEmpty(tex.m_StreamData.path))
+                return tex.pictureData;
+
+            string path = tex.m_StreamData.path;
+            long offset = (long)tex.m_StreamData.offset;
+            int size = (int)tex.m_StreamData.size;
+
+            // 1) el .resS puede estar DENTRO del bundle (Addressables, data.unity3d de Unity 6)
+            byte[] dentro = ReadFromBundle(inst, path, offset, size);
+            if (dentro != null)
+                return dentro;
+
+            // 2) archivo suelto junto al .assets
+            string root = Path.GetDirectoryName(inst.path);
+            string candidate = path.StartsWith("archive:/") ? Path.GetFileName(path) : path;
+            if (!Path.IsPathRooted(candidate) && !string.IsNullOrEmpty(root))
+                candidate = Path.Combine(root, candidate);
+
+            try
             {
-                string root = Path.GetDirectoryName(inst.path);
-                string path = tex.m_StreamData.path;
-                if (inst.parentBundle == null && path.StartsWith("archive:/"))
-                    path = Path.GetFileName(path);
-                if (!Path.IsPathRooted(path) && root != null)
-                    path = Path.Combine(root, path);
+                if (!File.Exists(candidate))
+                {
+                    string only = Path.GetFileName(path);
+                    string junto = string.IsNullOrEmpty(root) ? only : Path.Combine(root, only);
+                    if (File.Exists(junto))
+                        candidate = junto;
+                    else
+                        return null;
+                }
 
-                if (!File.Exists(path))
-                    return null;
-
-                using var fs = File.OpenRead(path);
-                fs.Position = (long)tex.m_StreamData.offset;
-                var buf = new byte[(int)tex.m_StreamData.size];
+                using var fs = File.OpenRead(candidate);
+                fs.Position = offset;
+                var buf = new byte[size];
                 fs.ReadExactly(buf, 0, buf.Length);
                 return buf;
             }
-            return tex.pictureData;
+            catch { return null; }
+        }
+
+        /// <summary>Lee un bloque .resS empaquetado dentro del mismo bundle que el asset.</summary>
+        private static byte[] ReadFromBundle(AssetsFileInstance inst, string streamPath, long offset, int size)
+        {
+            try
+            {
+                var bun = inst?.parentBundle;
+                if (bun?.file == null)
+                    return null;
+
+                string wanted = streamPath;
+                string only = Path.GetFileName(wanted);
+
+                int idx = -1;
+                var dirs = bun.file.BlockAndDirInfo.DirectoryInfos;
+                for (int i = 0; i < dirs.Length; i++)
+                {
+                    string name = dirs[i].Name ?? "";
+                    if (string.Equals(name, wanted, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(Path.GetFileName(name), only, StringComparison.OrdinalIgnoreCase))
+                    {
+                        idx = i;
+                        break;
+                    }
+                }
+
+                if (idx < 0)
+                    return null;
+
+                bun.file.GetFileRange(idx, out long start, out long length);
+                if (offset < 0 || size <= 0 || offset + size > length)
+                    return null;
+
+                var reader = bun.file.DataReader;
+                if (reader != null)
+                {
+                    reader.Position = start + offset;
+                    return reader.ReadBytes(size);
+                }
+
+                var ds = bun.DataStream;
+                if (ds == null)
+                    return null;
+
+                ds.Position = start + offset;
+                var buf = new byte[size];
+                int leido = 0;
+                while (leido < size)
+                {
+                    int n = ds.Read(buf, leido, size - leido);
+                    if (n <= 0)
+                        break;
+                    leido += n;
+                }
+                return leido == size ? buf : null;
+            }
+            catch { return null; }
         }
 
         private static byte[] Decode(byte[] data, int width, int height, TextureFormat format)
