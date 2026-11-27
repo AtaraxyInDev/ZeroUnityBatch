@@ -290,8 +290,14 @@ namespace Zub
                 return null;
 
             // primero una *_Data, luego la que tenga globalgamemanagers, luego data.unity3d
+            // Lo que está DENTRO de la carpeta indicada va primero: si no, al abrir un juego se
+            // podía colar la carpeta _Data de otro juego vecino (mismo padre, ruta más corta).
+            string prefixo = start.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                             + Path.DirectorySeparatorChar;
+
             return candidatos
-                .OrderByDescending(c => Path.GetFileName(c).EndsWith("_Data", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(c => c.StartsWith(prefixo, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenByDescending(c => Path.GetFileName(c).EndsWith("_Data", StringComparison.OrdinalIgnoreCase))
                 .ThenByDescending(c => File.Exists(Path.Combine(c, "globalgamemanagers")))
                 .ThenByDescending(c => File.Exists(Path.Combine(c, "data.unity3d")))
                 .ThenBy(c => c.Length)
@@ -559,6 +565,29 @@ namespace Zub
                 catch { }
             }
 
+            // La carpeta del juego entera: hay juegos que guardan los textos en AssetBundles/
+            // fuera de *_Data (p. ej. AssetBundles/english/scenarios). Se detectan por cabecera,
+            // porque el archivo no suele tener extensión.
+            try
+            {
+                string raizJuego = Path.GetDirectoryName(DataDir);
+                if (!string.IsNullOrEmpty(raizJuego) && Directory.Exists(raizJuego))
+                {
+                    foreach (var f in Directory.GetFiles(raizJuego, "*", SearchOption.AllDirectories))
+                    {
+                        if (vistos.Contains(f))
+                            continue;
+
+                        if (!EsBundle(f))
+                            continue;
+
+                        vistos.Add(f);
+                        bundles.Add(f);
+                    }
+                }
+            }
+            catch { }
+
             log?.Invoke($"Bundles buscados en: {string.Join(" | ", dirs.Distinct())} → {bundles.Count}");
 
             if (bundles.Count == 0)
@@ -619,6 +648,29 @@ namespace Zub
             BundleAssets = ok;
             log?.Invoke($"Bundles: {bundles.Count:N0} leídos, {ok:N0} archivos serializados dentro" +
                         (bad > 0 ? $", {bad:N0} con error" : ""));
+        }
+
+        /// <summary>Detecta un AssetBundle por su cabecera (UnityFS / UnityWeb / UnityRaw / UnityArchive).</summary>
+        private static bool EsBundle(string path)
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                if (info.Length < 16)
+                    return false;
+
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    var buf = new byte[8];
+                    int leido = fs.Read(buf, 0, 8);
+                    if (leido < 8)
+                        return false;
+
+                    return buf[0] == (byte)'U' && buf[1] == (byte)'n' && buf[2] == (byte)'i' &&
+                           buf[3] == (byte)'t' && buf[4] == (byte)'y';
+                }
+            }
+            catch { return false; }
         }
 
         private void Index(Action<string> log)
