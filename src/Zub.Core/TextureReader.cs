@@ -453,23 +453,19 @@ namespace Zub
                 case TextureFormat.DXT1Crunched:
                     if (data.Length >= Bloques(width) * Bloques(height) * 8)
                         return DecodeBc(() => BcDecoder.DecompressBC1(data, width, height, out var o) >= 0 ? o : null);
-                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B, DXT1 sin comprimir serían {Bloques(width) * Bloques(height) * 8:N0} B";
-                    return null;
+                    return DecodeCrn(data, (int)format, width, height, out _);
                 case TextureFormat.DXT5Crunched:
                     if (data.Length >= Bloques(width) * Bloques(height) * 16)
                         return DecodeBc(() => BcDecoder.DecompressBC3(data, width, height, out var o) >= 0 ? o : null);
-                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B, DXT5 sin comprimir serían {Bloques(width) * Bloques(height) * 16:N0} B";
-                    return null;
+                    return DecodeCrn(data, (int)format, width, height, out _);
                 case TextureFormat.ETC_RGB4Crunched:
                     if (data.Length >= Bloques(width) * Bloques(height) * 8)
                         return DecodeBc(() => EtcDecoder.DecompressETC(data, width, height, out var o) >= 0 ? o : null);
-                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B";
-                    return null;
+                    return DecodeCrn(data, (int)format, width, height, out _);
                 case TextureFormat.ETC2_RGBA8Crunched:
                     if (data.Length >= Bloques(width) * Bloques(height) * 16)
                         return DecodeBc(() => EtcDecoder.DecompressETC2A1(data, width, height, out var o) >= 0 ? o : null);
-                    DecodeDetail = $"crunch de verdad: {data.Length:N0} B";
-                    return null;
+                    return DecodeCrn(data, (int)format, width, height, out _);
                 case TextureFormat.DXT1:
                     return DecodeBc(() => BcDecoder.DecompressBC1(data, width, height, out var o) >= 0 ? o : null);
                 case TextureFormat.DXT5:
@@ -624,6 +620,28 @@ namespace Zub
                 }
             }
             return null;
+        }
+
+        /// <summary>Descomprime un bloque Crunch (crn) y decodifica el DXT/ETC resultante.</summary>
+        private static byte[] DecodeCrn(byte[] data, int unityFormat, int width, int height, out string detalle)
+        {
+            detalle = null;
+            byte[] blocks;
+            int baseFmt = -1;
+            try { blocks = CrnDecoder.UnpackToBlockData(data, unityFormat, out baseFmt); }
+            catch (Exception ex) { detalle = "crn: " + ex.Message; return null; }
+
+            if (blocks == null)
+            {
+                detalle = $"crunch no valido ({data.Length:N0} B)";
+                DecodeDetail = detalle;
+                return null;
+            }
+
+            byte[] rgba = Decode(blocks, width, height, (TextureFormat)baseFmt);
+            if (rgba != null) DecodeDetail = "crunch descomprimido";
+            else detalle = DecodeDetail ?? "crn: el bloque interno no se pudo decodificar";
+            return rgba;
         }
 
         private static byte[] DecodeBc(Func<byte[]> decoder)

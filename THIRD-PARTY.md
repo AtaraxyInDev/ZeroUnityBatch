@@ -8,6 +8,12 @@ ZeroUnity Batch is MIT licensed (see [LICENSE](LICENSE)), but it stands on other
 |---|---|---|
 | [AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET), `.Texture`, `.MonoCecil` binaries | `Libs/` | MIT — © nesrak1 |
 | `classdata.tpk` class database (shipped with UABEA / AssetsTools.NET) | `data/` | MIT — © nesrak1 |
+| Crunch decoder (C# port of `crn_decomp.h`, `src/Zub.Core/Crn/`) | `src/Zub.Core/Crn/` | MIT — © nesrak1 (AssetsTools.NET), port of ZLIB-licensed crn_decomp © 2010-2016 Rich Geldreich, Jr. and Binomial LLC |
+
+The vendored `src/Zub.Core/Crn/` files were taken from `AssetsTools.NET.Texture` (the decoder UABEA
+Next uses) and patched in two places, both marked with comments: `ReadUInt24` is read by hand because
+the version of `AssetsFileReader` shipped in `Libs/` consumes four bytes instead of three, which
+shifted the whole crn header.
 
 `Libs/` is committed on purpose so the project builds with a plain `dotnet build`, without
 downloading binaries by hand. `data/classdata.tpk` is copied next to the executable by

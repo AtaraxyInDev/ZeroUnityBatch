@@ -113,6 +113,100 @@ namespace Zub
             }
         }
 
+        /// <summary>
+        /// Importa el JSON sobre el campo de valor ya leído del asset (con su RefTypeManager).
+        /// Se usa para objetos con SerializeReference, que no se pueden reconstruir desde la plantilla:
+        /// aquí se conserva el árbol original y solo se sustituyen los valores que cambiaron.
+        /// Devuelve null si no hubo cambios.
+        /// </summary>
+        public static byte[] ImportOverField(AssetTypeValueField baseField, string jsonText, out string error)
+        {
+            error = null;
+            try
+            {
+                JToken token = JToken.Parse(jsonText);
+                if (!ApplyOverField(baseField, token))
+                    return null;
+
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    var aw = new AssetsFileWriter(ms) { BigEndian = false };
+                    baseField.Write(aw);
+                    return ms.ToArray();
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return null;
+            }
+        }
+
+        /// <summary>Sustituye en el árbol sólo los valores simples. Devuelve true si algo cambió.</summary>
+        private static bool ApplyOverField(AssetTypeValueField field, JToken token)
+        {
+            if (token == null || field == null)
+                return false;
+
+            var tf = field.TemplateField;
+            bool changed = false;
+
+            if (tf != null && tf.IsArray && !tf.HasValue && token is JArray arr)
+            {
+                int n = Math.Min(arr.Count, field.Children.Count);
+                for (int i = 0; i < n; i++)
+                    changed |= ApplyOverField(field.Children[i], arr[i]);
+                return changed;
+            }
+
+            bool tieneValor = tf != null && tf.HasValue;
+            if (!tieneValor)
+            {
+                foreach (var child in field.Children)
+                {
+                    string nombre = child.TemplateField != null ? child.TemplateField.Name : null;
+                    if (nombre == null)
+                        continue;
+                    changed |= ApplyOverField(child, token[nombre]);
+                }
+                return changed;
+            }
+
+            switch (tf.ValueType)
+            {
+                case AssetValueType.String:
+                {
+                    string nuevo = token.Type == JTokenType.Null ? "" : (string)token;
+                    if (nuevo != field.AsString)
+                    {
+                        field.AsString = nuevo;
+                        return true;
+                    }
+                    return false;
+                }
+                case AssetValueType.Bool:
+                    if ((bool)token != field.AsBool) { field.AsBool = (bool)token; return true; }
+                    return false;
+                case AssetValueType.Int32:
+                    if ((int)token != field.AsInt) { field.AsInt = (int)token; return true; }
+                    return false;
+                case AssetValueType.UInt32:
+                    if ((uint)token != field.AsUInt) { field.AsUInt = (uint)token; return true; }
+                    return false;
+                case AssetValueType.Int64:
+                    if ((long)token != field.AsLong) { field.AsLong = (long)token; return true; }
+                    return false;
+                case AssetValueType.Float:
+                    if (Math.Abs((float)token - field.AsFloat) > 1e-9) { field.AsFloat = (float)token; return true; }
+                    return false;
+                case AssetValueType.Double:
+                    if (Math.Abs((double)token - field.AsDouble) > 1e-12) { field.AsDouble = (double)token; return true; }
+                    return false;
+                default:
+                    return false;   // ByteArray y demás: no se tocan
+            }
+        }
+
         private static void ImportRecurse(AssetTypeTemplateField tempField, JToken token, AssetsFileWriter aw)
         {
             bool align = tempField.IsAligned;

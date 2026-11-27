@@ -123,6 +123,7 @@ the format by hand:
 | Task | Call used (identical to UABEA Next 4) |
 |---|---|
 | Read a texture | `TextureFile.ReadTextureFile(field)` + `TextureFile.GetTextureData(inst)` |
+| Decode Crunch | vendored `CrnUnity` decoder from `AssetsTools.NET.Texture` (same one UABEA uses) |
 | Type names | `AssetsManager.ClassDatabase.FindAssetClassByID(id)` + `GetString(name)` |
 | Read an asset | `AssetTypeTemplateField.MakeValue(reader, pos, RefTypeManager)` |
 | JSON format | same field names/indent/CRLF as UABEA's exporter |

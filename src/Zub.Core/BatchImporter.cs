@@ -189,6 +189,23 @@ namespace Zub
                 {
                     string json = File.ReadAllText(item.SourceFile);
                     byte[] data = JsonCodec.Import(plantillas[i], json, out string err);
+
+                    // SerializeReference: la plantilla no lleva los tipos gestionados, asi que se
+                    // reescribe sobre el propio arbol del asset (conserva la estructura original).
+                    if (data == null && err != null && err.Contains("SerializeReference"))
+                    {
+                        AssetTypeValueField campo;
+                        try { campo = proj.ReadField(item.Entry.Inst, plantillas[i], item.Entry.Position); }
+                        catch (Exception ex2) { campo = null; err = ex2.Message; }
+
+                        if (campo != null)
+                        {
+                            data = JsonCodec.ImportOverField(campo, json, out string err3);
+                            if (data == null)
+                                err = err3 ?? "sin cambios";
+                        }
+                    }
+
                     if (data == null)
                         fallos[i] = $"{Path.GetFileName(item.SourceFile)}: {err}";
                     else

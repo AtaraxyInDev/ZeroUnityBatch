@@ -1,4 +1,4 @@
-# ZeroUnity Batch 1.0.4
+# ZeroUnity Batch 1.0.5
 
 Motor: AssetsTools.NET (el mismo de UABEA Next).
 Interfaz: Avalonia 11 + AvaloniaEdit (editor virtualizado con resaltado).
@@ -67,7 +67,12 @@ Preparar/Descartar trabajan igual sobre un objeto individual.
   con su decodificador). Nuestro lector manual queda solo como plan B si ese falla.
 - **Nombres de tipo reales** desde `classdata.tpk` (GameObject, Transform, SpriteRenderer…). Antes
   salían como `0x000000D4` en juegos cuyo id de tipo no estaba en la tabla fija.
-- **Texturas Crunch** (`DXT5Crunched`): si el build guardó el bloque normal se decodifican igual;
+- **Texturas Crunch de verdad**: las `DXT1Crunched`, `DXT5Crunched`, `ETC_RGB4Crunched` y
+  `ETC2_RGBA8Crunched` se descomprimen con el mismo decodificador crn que usa UABEA Next. En Castle
+  of Temptation eran 23 y ya no fallan (1.731 → **1.754** texturas exportadas).
+- **Reimportar objetos con `SerializeReference`**: si el JSON no se puede reconstruir desde la
+  plantilla, se reescribe sobre el árbol del propio asset (conservando los tipos gestionados).
+- **Texturas Crunch (histórico)** (`DXT5Crunched`): si el build guardó el bloque normal se decodifican igual;
   si van comprimidas de verdad, el mensaje dice el tamaño exacto para que se sepa.
 
 ## Portátil: no hace falta instalar nada
