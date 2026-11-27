@@ -1,4 +1,4 @@
-# ZeroUnity Batch 1.0.3
+# ZeroUnity Batch 1.0.4
 
 Motor: AssetsTools.NET (el mismo de UABEA Next).
 Interfaz: Avalonia 11 + AvaloniaEdit (editor virtualizado con resaltado).
@@ -62,6 +62,11 @@ Preparar/Descartar trabajan igual sobre un objeto individual.
 - **ARGB32**: se interpreta en el orden correcto (A,R,G,B). Antes el rojo y el azul salían
   cambiados y cientos de máscaras/texturas se veían amarillas (482 de 1.731 en ese juego).
 - **El mensaje de error de una textura ya no se queda pegado** encima de la imagen siguiente.
+- **Texturas por el mismo camino que UABEA**: la lectura usa `TextureFile.GetTextureData`, el
+  mismo método que llama UABEA Next (resuelve `m_StreamData` suelto o dentro del bundle y decodifica
+  con su decodificador). Nuestro lector manual queda solo como plan B si ese falla.
+- **Nombres de tipo reales** desde `classdata.tpk` (GameObject, Transform, SpriteRenderer…). Antes
+  salían como `0x000000D4` en juegos cuyo id de tipo no estaba en la tabla fija.
 - **Texturas Crunch** (`DXT5Crunched`): si el build guardó el bloque normal se decodifican igual;
   si van comprimidas de verdad, el mensaje dice el tamaño exacto para que se sepa.
 

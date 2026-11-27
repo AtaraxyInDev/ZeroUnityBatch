@@ -2,7 +2,7 @@
 ; Compilar:  "C:\Users\mrzero\AppData\Local\Programs\Inno Setup 6\ISCC.exe" ZeroUnityBatch.iss
 
 #define AppName "ZeroUnity Batch"
-#define AppVersion "1.0.3"
+#define AppVersion "1.0.4"
 #define AppPublisher "ZeroH Studio"
 #define AppExe "ZeroUnityBatch.exe"
 

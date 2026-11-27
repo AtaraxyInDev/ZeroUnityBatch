@@ -127,7 +127,7 @@ internal static class Program
                 data_dir = proj.DataDir,
                 containers = proj.LoadedContainers.Select(Path.GetFileName).ToArray(),
                 total = proj.Assets.Count,
-                by_type = byType.ToDictionary(k => AssetTypes.NameOf(k.Key), v => v.Value),
+                by_type = byType.ToDictionary(k => proj.TypeNameOf(k.Key), v => v.Value),
                 seconds = Math.Round(sw.Elapsed.TotalSeconds, 2)
             };
             Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));

@@ -115,6 +115,22 @@ zub compare   <dirUABEA> <dirZub> [--exact] [--out informe.csv]
 zub android / dlls / apk             Android helpers
 ```
 
+## How parity with UABEA is achieved
+
+Wherever UABEA Next does something non-trivial we call **the same API**, instead of re-implementing
+the format by hand:
+
+| Task | Call used (identical to UABEA Next 4) |
+|---|---|
+| Read a texture | `TextureFile.ReadTextureFile(field)` + `TextureFile.GetTextureData(inst)` |
+| Type names | `AssetsManager.ClassDatabase.FindAssetClassByID(id)` + `GetString(name)` |
+| Read an asset | `AssetTypeTemplateField.MakeValue(reader, pos, RefTypeManager)` |
+| JSON format | same field names/indent/CRLF as UABEA's exporter |
+
+That is also how two classes of bug disappeared: legacy files report **negative type ids** for
+MonoBehaviours (a Unity 5.3 game listed 0 of them until the ids were normalised) and `ARGB32` must be
+read as **A,R,G,B** (reading it as B,G,R,A turned 482 of 1,731 textures yellow).
+
 ## Parity against UABEA
 
 The GUI has a **Compare with UABEA…** button: pick the folder UABEA exported and the folder we

@@ -653,7 +653,7 @@ namespace Zub
                             Size = info.ByteSize,
                             Stripped = info.Stripped != 0
                         };
-                        entry.TypeName = AssetTypes.NameOf(entry.ClassId);
+                        entry.TypeName = TypeNameOf(entry.ClassId);
                         Assets.Add(entry);
                     }
                     catch
@@ -664,6 +664,34 @@ namespace Zub
             }
 
             log?.Invoke($"Objetos indexados: {Assets.Count}" + (failed > 0 ? $" ({failed} ilegibles)" : ""));
+        }
+
+        /// <summary>Nombres de clase de la base de datos (classdata.tpk), como los muestra UABEA.</summary>
+        private readonly Dictionary<int, string> typeNames = new Dictionary<int, string>();
+
+        public string TypeNameOf(int classId)
+        {
+            if (typeNames.TryGetValue(classId, out string cache))
+                return cache;
+
+            string name = null;
+            try
+            {
+                var db = Am?.ClassDatabase;
+                if (db != null)
+                {
+                    var cls = db.FindAssetClassByID(classId);
+                    if (cls != null)
+                        name = db.GetString(cls.Name);
+                }
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(name))
+                name = "0x" + classId.ToString("X8");
+
+            typeNames[classId] = name;
+            return name;
         }
 
         public List<AssetEntry> OfType(int classId) => Assets.Where(a => a.ClassId == classId).ToList();

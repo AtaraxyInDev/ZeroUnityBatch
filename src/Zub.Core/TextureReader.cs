@@ -61,23 +61,45 @@ namespace Zub
                     return info;
                 }
 
-                byte[] raw = GetRawData(tex, entry.Inst);
-                if (raw == null || raw.Length == 0)
+                // Camino de UABEA: TextureFile.GetTextureData resuelve m_StreamData (archivo suelto o
+                // dentro del bundle) y devuelve BGRA32 ya decodificado con el mismo decodificador.
+                byte[] bgra = null;
+                try
                 {
-                    info.Error = "no se pudo leer el bloque de datos (resS ausente)";
-                    return info;
+                    lock (entry.Inst)
+                        bgra = tex.GetTextureData(entry.Inst);
                 }
-                info.DataBytes = raw.Length;
+                catch { }
 
-                byte[] rgba = Decode(raw, info.Width, info.Height, (TextureFormat)tex.m_TextureFormat);
-                if (rgba == null)
+                bool usarBgra = bgra != null && bgra.Length >= info.Width * info.Height * 4;
+                info.DataBytes = bgra?.Length ?? 0;
+
+                Image image;
+                if (usarBgra)
                 {
-                    info.Error = "formato no soportado para previsualizar: " + info.Format +
-                                 (DecodeDetail != null ? "  (" + DecodeDetail + ")" : "");
-                    return info;
+                    image = Image.LoadPixelData<Bgra32>(bgra, info.Width, info.Height);
+                }
+                else
+                {
+                    // plan B: leer los bytes a mano y decodificar (cubre casos que el helper no maneja)
+                    byte[] raw = GetRawData(tex, entry.Inst);
+                    if (raw == null || raw.Length == 0)
+                    {
+                        info.Error = "no se pudo leer el bloque de datos (resS ausente)";
+                        return info;
+                    }
+                    info.DataBytes = raw.Length;
+
+                    byte[] rgba = Decode(raw, info.Width, info.Height, (TextureFormat)tex.m_TextureFormat);
+                    if (rgba == null)
+                    {
+                        info.Error = "formato no soportado para previsualizar: " + info.Format +
+                                     (DecodeDetail != null ? "  (" + DecodeDetail + ")" : "");
+                        return info;
+                    }
+                    image = Image.LoadPixelData<Rgba32>(rgba, info.Width, info.Height);
                 }
 
-                using var image = Image.LoadPixelData<Rgba32>(rgba, info.Width, info.Height);
                 image.Mutate(i => i.Flip(FlipMode.Vertical));
 
                 if (maxDimension > 0 && (image.Width > maxDimension || image.Height > maxDimension))
@@ -95,6 +117,7 @@ namespace Zub
                     info.Png = ms.ToArray();
                 }
 
+                image.Dispose();
                 info.Decodable = true;
             }
             catch (Exception ex)
